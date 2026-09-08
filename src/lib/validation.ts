@@ -17,3 +17,20 @@ export const columnSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('reorder'), ids: z.array(idSchema).max(20), revision: z.number().int() }),
   z.object({ action: z.literal('delete'), id: idSchema, destinationId: idSchema.nullable(), revision: z.number().int() }),
 ]);
+export const aiGenerateSchema = z.object({
+  prompt: z.string().trim().min(2, 'Please enter a description or speaking prompt.').max(10000),
+  boardId: idSchema.optional(),
+  apiKey: z.string().trim().max(256).optional()
+});
+export const taskBatchSchema = z.object({
+  tasks: z.array(z.object({
+    id: z.string().uuid().optional(),
+    title: z.string().trim().min(1).max(200),
+    description: z.string().max(10000).default(''),
+    columnId: idSchema,
+    priority: z.enum(['none', 'low', 'medium', 'high']).default('none'),
+    dueDate: dateSchema.default(null),
+    assigneeId: idSchema.nullable().default(null)
+  })).min(1, 'No tasks to add.').max(50, 'Cannot add more than 50 tasks at once.')
+});
+

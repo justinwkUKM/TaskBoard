@@ -4,8 +4,9 @@ import type { DecodedIdToken } from 'firebase-admin/auth';
 import { z } from 'zod';
 import { admin } from './admin';
 import { assert, ApiError } from './auth';
-import { boardCreateSchema, boardEditSchema, columnSchema, idSchema, moveSchema, taskCreateSchema, taskEditSchema } from '../validation';
+import { boardCreateSchema, boardEditSchema, columnSchema, idSchema, moveSchema, taskBatchSchema, taskCreateSchema, taskEditSchema, aiGenerateSchema } from '../validation';
 import { LIMITS, type Board, type Task } from '../types';
+import { generateTasksWithGemini } from './ai';
 
 const stamp = () => FieldValue.serverTimestamp();
 const profile = (user: DecodedIdToken) => ({ name: String(user.name || user.email?.split('@')[0] || 'Member').slice(0, 100), photoURL: typeof user.picture === 'string' && user.picture.startsWith('https://') ? user.picture : null });
@@ -26,6 +27,16 @@ export async function dispatch(user: DecodedIdToken, method: string, segments: s
   if (segments.join('/') === 'profile' && method === 'POST') {
     await db.collection('users').doc(uid).set({ ...profile(user), updatedAt: stamp() }, { merge: true });
     return { ok: true };
+  }
+  if (segments[0] === 'ai' && segments[1] === 'generate' && segments.length === 2 && method === 'POST') {
+    const data = aiGenerateSchema.parse(input);
+    let columns: Array<{ id: string; name: string }> = [];
+    if (data.boardId) {
+      const bSnap = await db.collection('boards').doc(data.boardId).get();
+      const b = bSnap.data() as Board;
+      if (b && !b.deleting && b.memberIds.includes(uid)) columns = b.columns;
+    }
+    return generateTasksWithGemini({ prompt: data.prompt, apiKey: data.apiKey, boardColumns: columns });
   }
   if (segments.join('/') === 'invitations/accept' && method === 'POST') return acceptInvite(user, input);
   if (segments.length === 1 && segments[0] === 'boards' && method === 'POST') {
@@ -91,6 +102,40 @@ export async function dispatch(user: DecodedIdToken, method: string, segments: s
         columns.splice(columns.findIndex(c => c.id === data.id), 1);
       }
       touch(tx, ref, board, { columns }); return { ok: true };
+    }
+    if (segments[2] === 'tasks' && segments[3] === 'batch' && segments.length === 4 && method === 'POST') {
+      const data = taskBatchSchema.parse(input);
+      assert(board.taskCount + data.tasks.length <= LIMITS.tasks, 422, `A board can hold up to ${LIMITS.tasks} tasks.`);
+      const columnIds = new Set(data.tasks.map(t => t.columnId));
+      for (const colId of columnIds) assert(board.columns.some(c => c.id === colId), 409, 'A selected column no longer exists.');
+      const colRanks: Record<string, number> = {};
+      for (const colId of columnIds) {
+        const others = await tx.get(ref.collection('tasks').where('columnId', '==', colId));
+        colRanks[colId] = Math.max(0, ...others.docs.map(t => t.data().rank));
+      }
+      const createdIds: string[] = [];
+      for (const t of data.tasks) {
+        const taskId = t.id || crypto.randomUUID();
+        const taskRef = ref.collection('tasks').doc(taskId);
+        const nextRank = (colRanks[t.columnId] || 0) + 1024;
+        colRanks[t.columnId] = nextRank;
+        tx.create(taskRef, {
+          title: t.title,
+          description: t.description || '',
+          columnId: t.columnId,
+          priority: t.priority || 'none',
+          dueDate: t.dueDate || null,
+          assigneeId: t.assigneeId || null,
+          rank: nextRank,
+          createdBy: uid,
+          revision: 0,
+          createdAt: stamp(),
+          updatedAt: stamp()
+        });
+        createdIds.push(taskId);
+      }
+      touch(tx, ref, board, { taskCount: board.taskCount + data.tasks.length });
+      return { ok: true, createdCount: createdIds.length, ids: createdIds };
     }
     if (segments[2] === 'tasks' && segments.length === 3 && method === 'POST') {
       const data = taskCreateSchema.parse(input); const taskRef = ref.collection('tasks').doc(data.id);
