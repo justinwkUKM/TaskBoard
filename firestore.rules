@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function board(id) { return get(/databases/$(database)/documents/boards/$(id)).data; }
+    function member(id) { return signedIn() && request.auth.uid in board(id).memberIds && board(id).deleting == false; }
+    match /users/{uid} { allow read: if signedIn() && request.auth.uid == uid; }
+    match /boards/{id} {
+      allow read: if signedIn() && request.auth.uid in resource.data.memberIds && resource.data.deleting == false;
+      match /tasks/{task} { allow read: if member(id); }
+      match /members/{uid} { allow read: if member(id); }
+      match /invites/{invite} { allow read: if false; }
+    }
+    match /{document=**} { allow write: if false; }
+  }
+}

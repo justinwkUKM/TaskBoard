@@ -1,0 +1,8 @@
+{
+  "indexes": [{ "collectionGroup": "boards", "queryScope": "COLLECTION", "fields": [
+    { "fieldPath": "memberIds", "arrayConfig": "CONTAINS" },
+    { "fieldPath": "deleting", "order": "ASCENDING" },
+    { "fieldPath": "updatedAt", "order": "DESCENDING" }
+  ] }],
+  "fieldOverrides": [{ "collectionGroup": "tasks", "fieldPath": "description", "indexes": [] }]
+}
