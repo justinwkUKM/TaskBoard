@@ -19,7 +19,11 @@ export async function api<T = { ok: boolean }>(path: string, method = 'GET', dat
   const user = auth?.currentUser; if (!user) throw new Error('Please sign in to continue.');
   const send = async (refresh = false) => fetch(`/api${path}`, { method, headers: { Authorization: `Bearer ${await user.getIdToken(refresh)}`, 'Content-Type': 'application/json' }, ...(data ? { body: JSON.stringify(data) } : {}) });
   let response = await send(); if (response.status === 401) response = await send(true);
-  const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Something went wrong. Try again.'); return result;
+  const text = await response.text();
+  let result: Record<string, unknown> = {};
+  try { if (text) result = JSON.parse(text); } catch { throw new Error(response.ok ? 'Unexpected response from server.' : `Server error (${response.status}). Please try again.`); }
+  if (!response.ok) throw new Error((result.error as string) || 'Something went wrong. Try again.');
+  return result as T;
 }
 export function errorMessage(error: unknown) {
   if (error instanceof Error) {
