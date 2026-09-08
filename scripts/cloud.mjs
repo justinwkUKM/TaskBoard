@@ -16,3 +16,14 @@ if (mode === 'inspect') {
   const providers = await request(`${base}/defaultSupportedIdpConfigs`);
   console.log(JSON.stringify({ providers: providers.defaultSupportedIdpConfigs?.map(p => ({ name: p.name, enabled: p.enabled, hasClientId: Boolean(p.clientId) })) }));
 }
+if (mode === 'add-domain') {
+  const domainToAdd = process.argv[4];
+  if (!domainToAdd) throw new Error('Specify domain to add');
+  const cleanDomain = domainToAdd.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+  const config = await request(`${base}/config`);
+  const currentDomains = config.authorizedDomains || [];
+  const updatedDomains = Array.from(new Set([...currentDomains, cleanDomain]));
+  const updated = await request(`${base}/config?updateMask=authorizedDomains`, 'PATCH', { authorizedDomains: updatedDomains });
+  console.log(`Updated authorizedDomains for ${project}:`, updated.authorizedDomains);
+}
+
