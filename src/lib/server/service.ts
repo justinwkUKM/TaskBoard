@@ -45,6 +45,11 @@ export async function dispatch(user: DecodedIdToken, method: string, segments: s
   const boardId = idSchema.parse(segments[1]); const ref = db.collection('boards').doc(boardId);
   if (segments.length === 2 && method === 'DELETE') return deleteBoard(uid, ref);
   if (segments[2] === 'invites' && segments.length === 3) return invitations(user, ref, method, input);
+  if (segments[2] === 'heartbeat' && segments.length === 3 && method === 'POST') {
+    const boardSnap = await ref.get(); const board = boardSnap.data() as Board; allowed(board, uid);
+    await ref.collection('members').doc(uid).set({ ...profile(user), lastSeen: Date.now() }, { merge: true });
+    return { ok: true };
+  }
   return db.runTransaction(async tx => {
     const boardSnap = await tx.get(ref); const board = boardSnap.data() as Board;
     allowed(board, uid);
