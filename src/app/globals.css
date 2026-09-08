@@ -32,10 +32,10 @@
 .assistant-prompt-card{background:white;border:1px solid #dce0d4;border-radius:12px;padding:24px 22px;box-shadow:0 3px 6px #00000004;margin-bottom:24px}
 .prompt-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:12px;flex-wrap:wrap}
 .prompt-header label{font-size:13px}
-.mic-button{display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;background:#f3f4ee;border:1px solid #d6d9cd;color:var(--ink);cursor:pointer;position:relative}
+.mic-button{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:#f3f4ee;border:1px solid #d6d9cd;color:var(--ink);cursor:pointer;position:relative;flex-shrink:0}
 .mic-button:hover{background:#e7ebd9}
 .mic-button.recording{background:#fee2e2;border-color:#fca5a5;color:#b91c1c}
-.recording-pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;animation:pulse 1s infinite}
+.recording-pulse{position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:#ef4444;animation:pulse 1s infinite}
 @keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.4);opacity:.6}}
 .spinning{animation:spin 1s linear infinite}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}

@@ -67,7 +67,6 @@ function AssistantContent() {
   const [adding, setAdding] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
   const [summary, setSummary] = useState<string>('');
-  const [modelUsed, setModelUsed] = useState<string>('');
   const [tasks, setTasks] = useState<ProposedTask[]>([]);
   const [successMessage, setSuccessMessage] = useState<string>('');
 
@@ -256,7 +255,6 @@ function AssistantContent() {
       });
 
       setSummary(res.summary);
-      setModelUsed(res.modelUsed || 'gemini-3.5-flash');
 
       const fallbackCol = defaultColumnId || activeBoard?.columns[0]?.id || 'todo';
       const formatted: ProposedTask[] = res.tasks.map(t => {
@@ -358,7 +356,7 @@ function AssistantContent() {
         <div className="page-intro">
           <div>
             <span className="eyebrow">
-              <Sparkles size={13} /> AI TASK HELPER · GEMINI 3.5 FLASH
+              <Sparkles size={13} /> AI TASK HELPER
             </span>
             <h1>
               Speak or describe.
@@ -366,8 +364,8 @@ function AssistantContent() {
               Turn ideas into tasks<span className="lime-dot">.</span>
             </h1>
             <p>
-              Brainstorm in plain English or any language. Gemini will analyze your goals,
-              propose structured tasks, and add them to your board in one click.
+              Brainstorm in plain English or any language. Describe what you want to achieve,
+              and structured tasks will be suggested for your board in one click.
             </p>
           </div>
         </div>
@@ -419,24 +417,24 @@ function AssistantContent() {
               style={{ fontSize: 11, alignSelf: 'flex-end', paddingBottom: 8 }}
               onClick={() => setShowKeyInput(!showKeyInput)}
             >
-              <Key size={13} /> {showKeyInput ? 'Hide API key' : 'Custom Gemini API Key (optional)'}
+              <Key size={13} /> {showKeyInput ? 'Hide API key' : 'Custom API key (optional)'}
             </button>
           </div>
 
           {showKeyInput && (
             <div className="api-key-box">
               <label>
-                <span>Google Gemini API Key</span>
+                <span>API Key (optional)</span>
                 <input
                   type="password"
-                  placeholder="AIzaSy... (leave empty to use server default GEMINI_API_KEY)"
+                  placeholder="Enter custom API key (leave empty to use server default)"
                   value={apiKey}
                   onChange={e => handleSaveKey(e.target.value)}
                 />
               </label>
               <p className="field-help" style={{ margin: 0, fontSize: 11 }}>
                 Saved locally in your browser. If left empty, TaskBoard automatically uses the
-                configured server-side <code>GEMINI_API_KEY</code>.
+                configured server-side key.
               </p>
             </div>
           )}
@@ -457,11 +455,11 @@ function AssistantContent() {
                 type="button"
                 className={`mic-button ${recording ? 'recording' : ''}`}
                 onClick={toggleRecording}
-                title={recording ? 'Stop voice recording' : 'Speak your tasks'}
+                title={recording ? 'Stop voice recording' : 'Voice input'}
+                aria-label={recording ? 'Stop voice recording' : 'Voice input'}
                 aria-pressed={recording}
               >
                 {recording ? <MicOff size={16} /> : <Mic size={16} />}
-                <span>{recording ? 'Listening… Stop' : 'Voice Dictate'}</span>
                 {recording && <span className="recording-pulse" />}
               </button>
             )}
@@ -519,7 +517,7 @@ function AssistantContent() {
               {generating ? (
                 <>
                   <RefreshCw size={16} className="spinning" />
-                  Thinking with Gemini 3.5 Flash…
+                  Generating tasks…
                 </>
               ) : (
                 <>
@@ -558,11 +556,6 @@ function AssistantContent() {
                   Proposed Tasks <span className="count">{tasks.length}</span>
                 </h2>
                 {summary && <p className="proposed-summary">{summary}</p>}
-                {modelUsed && (
-                  <span className="model-badge">
-                    <Sparkles size={11} /> Model: {modelUsed}
-                  </span>
-                )}
               </div>
 
               <div className="proposed-actions">

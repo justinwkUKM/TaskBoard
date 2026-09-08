@@ -26,7 +26,7 @@ export async function generateTasksWithGemini({
   if (!key) {
     throw new ApiError(
       400,
-      'Gemini API key is required. Set GEMINI_API_KEY in environment variables or enter your key on this page.'
+      'API key is required. Please provide an API key in settings or set it in your environment.'
     );
   }
 
@@ -100,18 +100,18 @@ Respond strictly with a valid JSON object matching:
           continue;
         }
         if (response.status === 400 && (errText.includes('API_KEY_INVALID') || errText.includes('invalid API key'))) {
-          throw new ApiError(400, 'Invalid Gemini API key. Please check the key provided.');
+          throw new ApiError(400, 'Invalid API key. Please check the key provided.');
         }
         if (response.status === 429) {
-          throw new ApiError(429, 'Gemini rate limit exceeded. Please wait a moment and try again.');
+          throw new ApiError(429, 'Rate limit reached. Please wait a moment and try again.');
         }
-        throw new ApiError(response.status, `Gemini API error: ${response.statusText}`);
+        throw new ApiError(response.status, `AI service error: ${response.statusText}`);
       }
 
       const json = await response.json();
       const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!rawText) {
-        throw new Error('Empty response from Gemini');
+        throw new Error('Empty response from AI service');
       }
 
       const parsed = JSON.parse(rawText);
@@ -147,6 +147,6 @@ Respond strictly with a valid JSON object matching:
 
   throw new ApiError(
     502,
-    `Failed to generate tasks using Gemini models. ${lastError ? lastError.message : 'Please verify your API key or try again.'}`
+    `Failed to generate tasks. ${lastError ? lastError.message : 'Please verify your API key or try again.'}`
   );
 }
