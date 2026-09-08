@@ -437,7 +437,7 @@ function TaskCard({
   return (
     <article
       ref={setNodeRef}
-      className={`task-card ${isDragging ? 'dragging' : ''}`}
+      className={`task-card task-card-${task.priority || 'none'} ${isDragging ? 'dragging' : ''}`}
       style={{
         transform: CSS.Translate.toString(transform),
         transition: isDragging ? undefined : (transition || 'transform 200ms cubic-bezier(0.2, 0, 0, 1)'),
@@ -479,7 +479,7 @@ function TaskCardView({
   const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   return (
-    <article className={`task-card ${isOverlay ? 'dragging-overlay' : ''}`}>
+    <article className={`task-card task-card-${task.priority || 'none'} ${isOverlay ? 'dragging-overlay' : ''}`}>
       <div className="task-card-top">
         <span className="task-open">{task.title}</span>
         <span className="drag-handle" style={{ cursor: isOverlay ? 'grabbing' : 'grab' }}>
