@@ -153,7 +153,9 @@ function AssistantContent() {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       recog.onerror = (event: any) => {
-        if (event.error !== 'no-speech') {
+        if (event.error === 'not-allowed') {
+          setError('Microphone access was blocked. Please click the site permissions/lock icon in your browser address bar to allow microphone access on this site, then try again.');
+        } else if (event.error !== 'no-speech') {
           setError(`Speech recognition notice: ${event.error}. You can also type your request.`);
         }
         setRecording(false);
@@ -171,7 +173,7 @@ function AssistantContent() {
     }
   }, []);
 
-  function toggleRecording() {
+  async function toggleRecording() {
     setError('');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const recog = recognitionRef.current as any;
@@ -187,6 +189,16 @@ function AssistantContent() {
       setRecording(false);
       setSpeechInterim('');
     } else {
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          stream.getTracks().forEach(track => track.stop());
+        } catch {
+          setError('Microphone access was blocked. Please click the site settings/lock icon in your browser address bar to allow microphone access.');
+          return;
+        }
+      }
+
       try {
         recog.start();
         setRecording(true);
