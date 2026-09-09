@@ -20,7 +20,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Check, CheckCheck, GripVertical, RotateCcw, Sparkles } from 'lucide-react';
+import { CheckCheck, GripVertical, RotateCcw, Sparkles } from 'lucide-react';
 
 export type HeroTask = {
   id: string;
@@ -286,7 +286,9 @@ export function LandingHeroBoard() {
 
   const cardRef = useRef<HTMLDivElement>(null);
   const tasksRef = useRef(tasks);
-  tasksRef.current = tasks;
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
   const userInteractingRef = useRef<number>(0);
   const autoMoveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -400,7 +402,9 @@ export function LandingHeroBoard() {
   }, [autoPlay, activeTask, movingState]);
 
   const triggerAutoMoveRef = useRef(triggerAutoMove);
-  triggerAutoMoveRef.current = triggerAutoMove;
+  useEffect(() => {
+    triggerAutoMoveRef.current = triggerAutoMove;
+  }, [triggerAutoMove]);
 
   useEffect(() => {
     if (!autoPlay) return;

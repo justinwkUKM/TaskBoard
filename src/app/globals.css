@@ -206,4 +206,15 @@
 .proposed-card-meta{display:flex;align-items:center;gap:12px;padding-top:6px;border-top:1px solid #f0f2eb;flex-wrap:wrap}
 .meta-select-label{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
 .meta-select-label select{padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:white;font-size:11px}
+.pwa-install-banner{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:white;border:1px solid #d4d8ca;box-shadow:0 16px 36px -6px rgba(0,0,0,0.18),0 0 0 1px rgba(0,0,0,0.04);border-radius:14px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:16px;z-index:9998;max-width:calc(100vw - 32px);width:480px;animation:pwaSlideUp .35s cubic-bezier(0.16,1,0.3,1)}
+@keyframes pwaSlideUp{0%{opacity:0;transform:translate(-50%,20px)}100%{opacity:1;transform:translate(-50%,0)}}
+.pwa-install-content{display:flex;align-items:center;gap:12px;min-width:0}
+.pwa-install-icon{border-radius:8px;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,0.1)}
+.pwa-install-text{display:flex;flex-direction:column;min-width:0}
+.pwa-install-text strong{font-size:13px;font-weight:700;letter-spacing:-.3px;color:var(--ink)}
+.pwa-install-text span{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.pwa-install-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.pwa-install-btn{padding:8px 12px!important;font-size:11px!important;border-radius:8px!important;display:inline-flex;align-items:center;gap:5px}
+@media(max-width:600px){.pwa-install-banner{bottom:16px;width:calc(100% - 24px);padding:10px 12px;gap:10px}.pwa-install-text span{display:none}}
+
 
