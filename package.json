@@ -2,7 +2,9 @@
   "name": "taskboard",
   "version": "1.0.0",
   "private": true,
-  "engines": { "node": "22.x" },
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
@@ -14,30 +16,31 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@dnd-kit/core": "latest",
+    "@dnd-kit/sortable": "latest",
+    "@dnd-kit/utilities": "latest",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@radix-ui/react-dialog": "latest",
+    "firebase": "latest",
+    "firebase-admin": "latest",
+    "lucide-react": "latest",
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "firebase": "latest",
-    "firebase-admin": "latest",
-    "zod": "latest",
-    "lucide-react": "latest",
-    "@radix-ui/react-dialog": "latest",
-    "@dnd-kit/core": "latest",
-    "@dnd-kit/sortable": "latest",
-    "@dnd-kit/utilities": "latest"
+    "zod": "latest"
   },
   "devDependencies": {
-    "typescript": "latest",
+    "@firebase/rules-unit-testing": "latest",
+    "@playwright/test": "latest",
+    "@tailwindcss/postcss": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "tailwindcss": "latest",
-    "@tailwindcss/postcss": "latest",
     "eslint": "latest",
     "eslint-config-next": "16.3.4",
-    "vitest": "latest",
-    "@firebase/rules-unit-testing": "latest",
-    "@playwright/test": "latest"
+    "tailwindcss": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
   },
   "overrides": {
     "jwks-rsa": {

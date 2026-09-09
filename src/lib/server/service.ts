@@ -1,29 +1,53 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { FieldValue, type Transaction, type DocumentReference } from 'firebase-admin/firestore';
-import type { DecodedIdToken } from 'firebase-admin/auth';
 import { z } from 'zod';
 import { admin } from './admin';
-import { assert, ApiError } from './auth';
+import { assert, ApiError, type AuthContext } from './auth';
 import { boardCreateSchema, boardEditSchema, columnSchema, idSchema, moveSchema, taskBatchSchema, taskCreateSchema, taskEditSchema, aiGenerateSchema } from '../validation';
-import { LIMITS, type Board, type Task } from '../types';
+import { LIMITS, isDoneColumn, type Board, type Task } from '../types';
 import { generateTasksWithGemini } from './ai';
+import { handleAgentTokens, handleAgentV1, handleAnswerQuestion, handleVcsWebhook } from './agent-service';
 
 const stamp = () => FieldValue.serverTimestamp();
-const profile = (user: DecodedIdToken) => ({ name: String(user.name || user.email?.split('@')[0] || 'Member').slice(0, 100), photoURL: typeof user.picture === 'string' && user.picture.startsWith('https://') ? user.picture : null });
+const profile = (user: AuthContext) => ({
+  name: String(user.name || user.email?.split('@')[0] || (user.type === 'agent' ? user.name || 'AI Agent' : 'Member')).slice(0, 100),
+  photoURL: typeof user.picture === 'string' && user.picture.startsWith('https://') ? user.picture : null
+});
 const hash = (token: string) => createHash('sha256').update(token).digest('hex');
 function revision(actual: number, expected: number) { assert(actual === expected, 409, 'This item changed while you were editing. Close and reopen it to load the latest version.'); }
-function allowed(board: Board, uid: string, owner = false) {
-  assert(board && !board.deleting && board.memberIds.includes(uid), 404, 'This board is unavailable or you no longer have access.');
-  if (owner) assert(board.ownerId === uid, 403, 'Only the board owner can do that.');
+function allowed(board: Board, user: AuthContext, owner = false) {
+  assert(board && !board.deleting, 404, 'This board is unavailable or you no longer have access.');
+  if (user.type === 'agent') {
+    assert(!owner, 403, 'Agent tokens cannot perform board administrative actions.');
+    assert(user.boardId === board.id, 403, 'This agent token is not authorized for this board.');
+    return;
+  }
+  assert(board.memberIds.includes(user.uid), 404, 'This board is unavailable or you no longer have access.');
+  if (owner) assert(board.ownerId === user.uid, 403, 'Only the board owner can do that.');
 }
 function touch(tx: Transaction, ref: DocumentReference, board: Board, extra = {}) { tx.update(ref, { revision: board.revision + 1, updatedAt: stamp(), ...extra }); }
-function taskTarget(board: Board, data: { columnId: string; assigneeId: string | null }) {
+function taskTarget(board: Board, data: { columnId: string; assigneeId: string | null }, user?: AuthContext) {
   assert(board.columns.some(c => c.id === data.columnId), 409, 'The selected column no longer exists.');
-  assert(!data.assigneeId || board.memberIds.includes(data.assigneeId), 409, 'The selected person is no longer a member.');
+  assert(!data.assigneeId || data.assigneeId === 'agent-pool' || board.memberIds.includes(data.assigneeId) || (user?.type === 'agent' && user.agentId === data.assigneeId), 409, 'The selected person is no longer a member.');
+  if (user?.type === 'agent') {
+    const col = board.columns.find(c => c.id === data.columnId);
+    assert(!isDoneColumn(col), 403, 'Agent tokens cannot move tasks directly to Done. Tasks must be submitted for review.');
+  }
 }
 
-export async function dispatch(user: DecodedIdToken, method: string, segments: string[], input: unknown): Promise<unknown> {
+export async function dispatch(user: AuthContext, method: string, segments: string[], input: unknown): Promise<unknown> {
   const { db } = admin(); const uid = user.uid;
+
+  // VCS Webhook
+  if (segments[0] === 'webhooks' && segments[1] === 'vcs') {
+    return handleVcsWebhook(user, input);
+  }
+
+  // Agent API v1
+  if (segments[0] === 'agent' && segments[1] === 'v1') {
+    return handleAgentV1(user, method, segments, input);
+  }
+
   if (segments.join('/') === 'profile' && method === 'POST') {
     await db.collection('users').doc(uid).set({ ...profile(user), updatedAt: stamp() }, { merge: true });
     return { ok: true };
@@ -40,6 +64,7 @@ export async function dispatch(user: DecodedIdToken, method: string, segments: s
   }
   if (segments.join('/') === 'invitations/accept' && method === 'POST') return acceptInvite(user, input);
   if (segments.length === 1 && segments[0] === 'boards' && method === 'POST') {
+    assert(user.type !== 'agent', 403, 'Agent tokens cannot create boards.');
     const data = boardCreateSchema.parse(input); const ref = db.collection('boards').doc(data.id); const userRef = db.collection('users').doc(uid);
     return db.runTransaction(async tx => {
       const [existing, account] = await Promise.all([tx.get(ref), tx.get(userRef)]);
@@ -56,16 +81,17 @@ export async function dispatch(user: DecodedIdToken, method: string, segments: s
   const boardId = idSchema.parse(segments[1]); const ref = db.collection('boards').doc(boardId);
   if (segments.length === 2 && method === 'DELETE') return deleteBoard(uid, ref);
   if (segments[2] === 'invites' && segments.length === 3) return invitations(user, ref, method, input);
+  if (segments[2] === 'agent-tokens') return handleAgentTokens(user, ref, method, segments, input);
   if (segments[2] === 'heartbeat' && segments.length === 3 && method === 'POST') {
-    const boardSnap = await ref.get(); const board = boardSnap.data() as Board; allowed(board, uid);
+    const boardSnap = await ref.get(); const board = boardSnap.data() as Board; allowed(board, user);
     await ref.collection('members').doc(uid).set({ ...profile(user), lastSeen: Date.now() }, { merge: true });
     return { ok: true };
   }
   return db.runTransaction(async tx => {
     const boardSnap = await tx.get(ref); const board = boardSnap.data() as Board;
-    allowed(board, uid);
+    allowed(board, user);
     if (segments.length === 2 && method === 'PATCH') {
-      allowed(board, uid, true); const data = boardEditSchema.parse(input); revision(board.revision, data.revision);
+      allowed(board, user, true); const data = boardEditSchema.parse(input); revision(board.revision, data.revision);
       touch(tx, ref, board, { name: data.name, description: data.description }); return { ok: true };
     }
     if (segments[2] === 'members' && segments.length === 4 && method === 'DELETE') {
@@ -79,7 +105,7 @@ export async function dispatch(user: DecodedIdToken, method: string, segments: s
       touch(tx, ref, board, { memberIds: board.memberIds.filter(id => id !== target) }); return { ok: true };
     }
     if (segments[2] === 'columns' && segments.length === 3 && ['POST', 'PATCH', 'DELETE'].includes(method)) {
-      allowed(board, uid, true); const data = columnSchema.parse(input); revision(board.revision, data.revision);
+      allowed(board, user, true); const data = columnSchema.parse(input); revision(board.revision, data.revision);
       const columns = [...board.columns];
       if (data.action === 'create') {
         assert(columns.length < LIMITS.columns, 422, `A board can have up to ${LIMITS.columns} columns.`);
@@ -137,11 +163,25 @@ export async function dispatch(user: DecodedIdToken, method: string, segments: s
       touch(tx, ref, board, { taskCount: board.taskCount + data.tasks.length });
       return { ok: true, createdCount: createdIds.length, ids: createdIds };
     }
+    if (segments[2] === 'tasks' && segments.length === 5 && segments[4] === 'answer' && method === 'POST') {
+      return handleAnswerQuestion(user, ref, segments[3], input);
+    }
+    if (segments[2] === 'tasks' && segments.length === 5 && segments[4] === 'runs' && method === 'GET') {
+      const taskId = idSchema.parse(segments[3]);
+      const runs = await ref.collection('tasks').doc(taskId).collection('runs').orderBy('startedAt', 'desc').limit(20).get();
+      return { runs: runs.docs.map(d => d.data()) };
+    }
+    if (segments[2] === 'tasks' && segments.length === 7 && segments[4] === 'runs' && segments[6] === 'events' && method === 'GET') {
+      const taskId = idSchema.parse(segments[3]);
+      const runId = idSchema.parse(segments[5]);
+      const events = await ref.collection('tasks').doc(taskId).collection('runs').doc(runId).collection('events').orderBy('timestamp', 'asc').limit(100).get();
+      return { events: events.docs.map(d => d.data()) };
+    }
     if (segments[2] === 'tasks' && segments.length === 3 && method === 'POST') {
       const data = taskCreateSchema.parse(input); const taskRef = ref.collection('tasks').doc(data.id);
       const existing = await tx.get(taskRef);
       if (existing.exists) { assert(existing.data()?.createdBy === uid, 409, 'Task ID already exists.'); return { id: data.id }; }
-      assert(board.taskCount < LIMITS.tasks, 422, `A board can hold up to ${LIMITS.tasks} tasks.`); taskTarget(board, data);
+      assert(board.taskCount < LIMITS.tasks, 422, `A board can hold up to ${LIMITS.tasks} tasks.`); taskTarget(board, data, user);
       const tasks = await tx.get(ref.collection('tasks').where('columnId', '==', data.columnId));
       const rank = Math.max(0, ...tasks.docs.map(t => t.data().rank)) + 1024;
       tx.create(taskRef, { ...data, rank, createdBy: uid, revision: 0, createdAt: stamp(), updatedAt: stamp() });
@@ -156,7 +196,7 @@ export async function dispatch(user: DecodedIdToken, method: string, segments: s
       }
       if (typeof input === 'object' && input !== null && 'action' in input) {
         const data = moveSchema.parse(input); revision(task.revision, data.revision); revision(board.revision, data.boardRevision);
-        taskTarget(board, { columnId: data.columnId, assigneeId: task.assigneeId });
+        taskTarget(board, { columnId: data.columnId, assigneeId: task.assigneeId }, user);
         const others = await tx.get(ref.collection('tasks').where('columnId', '==', data.columnId));
         const ordered = others.docs.filter(t => t.id !== taskId).sort((a, b) => a.data().rank - b.data().rank || a.id.localeCompare(b.id));
         const index = data.beforeId === null ? ordered.length : ordered.findIndex(t => t.id === data.beforeId);
@@ -170,7 +210,7 @@ export async function dispatch(user: DecodedIdToken, method: string, segments: s
         }
         tx.update(taskRef, { columnId: data.columnId, rank, revision: task.revision + 1, updatedAt: stamp() });
       } else {
-        const data = taskEditSchema.parse(input); revision(task.revision, data.revision); taskTarget(board, data);
+        const data = taskEditSchema.parse(input); revision(task.revision, data.revision); taskTarget(board, data, user);
         let rank = task.rank;
         if (task.columnId !== data.columnId) {
           const others = await tx.get(ref.collection('tasks').where('columnId', '==', data.columnId));
@@ -184,11 +224,12 @@ export async function dispatch(user: DecodedIdToken, method: string, segments: s
   });
 }
 
-async function invitations(user: DecodedIdToken, ref: DocumentReference, method: string, input: unknown) {
+async function invitations(user: AuthContext, ref: DocumentReference, method: string, input: unknown) {
+  assert(user.type !== 'agent', 403, 'Agent tokens cannot manage invitations.');
   const { db } = admin();
   const token = `${ref.id}.${randomBytes(32).toString('base64url')}`;
   return db.runTransaction(async tx => {
-    const snap = await tx.get(ref); const board = snap.data() as Board; allowed(board, user.uid, true);
+    const snap = await tx.get(ref); const board = snap.data() as Board; allowed(board, user, true);
     if (method === 'GET') {
       const invites = await tx.get(ref.collection('invites'));
       return { invites: invites.docs.filter(doc => doc.data().state === 'pending' && doc.data().expiresAt > Date.now()).map(doc => ({ id: doc.id, email: doc.data().email, state: doc.data().state, expiresAt: doc.data().expiresAt })) };
@@ -211,7 +252,8 @@ async function invitations(user: DecodedIdToken, ref: DocumentReference, method:
   });
 }
 
-async function acceptInvite(user: DecodedIdToken, input: unknown) {
+async function acceptInvite(user: AuthContext, input: unknown) {
+  assert(user.type === 'user', 403, 'Only human user sessions can accept invitations.');
   const { token } = z.object({ token: z.string().max(256).regex(/^[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]{43}$/) }).parse(input);
   const { db } = admin(); const ref = db.collection('boards').doc(token.split('.')[0]); const inviteRef = ref.collection('invites').doc(hash(token));
   return db.runTransaction(async tx => {

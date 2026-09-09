@@ -486,6 +486,26 @@ function TaskCard({
       </div>
       {task.description && <p className="task-excerpt">{task.description}</p>}
       <div className="task-card-meta">
+        {task.executionState?.status === 'active' && (
+          <span className="agent-status-badge active" title={`Agent working on attempt #${task.executionState.attemptCount}`}>
+            <span className="live-dot" style={{ width: 6, height: 6 }} /> Bot Working
+          </span>
+        )}
+        {task.executionState?.status === 'review_ready' && (
+          <span className="agent-status-badge review" title="Verification tests passed. Ready for review.">
+            <CheckCheck size={11} /> Review Ready
+          </span>
+        )}
+        {task.executionState?.status === 'blocked' && (
+          <span className="agent-status-badge blocked" title="Agent needs clarification from human.">
+            Needs Input
+          </span>
+        )}
+        {task.assigneeId === 'agent-pool' && (
+          <span className="agent-pool-badge" title="Pooled for next available agent">
+            🤖 Pool
+          </span>
+        )}
         {task.priority !== 'none' && <span className={`priority priority-${task.priority}`}>{task.priority}</span>}
         {task.dueDate && (
           <span className={`task-date ${task.dueDate < todayString ? 'overdue' : ''}`} title={task.dueDate}>
@@ -528,6 +548,26 @@ function TaskCardView({
       </div>
       {task.description && <p className="task-excerpt">{task.description}</p>}
       <div className="task-card-meta">
+        {task.executionState?.status === 'active' && (
+          <span className="agent-status-badge active">
+            <span className="live-dot" style={{ width: 6, height: 6 }} /> Bot Working
+          </span>
+        )}
+        {task.executionState?.status === 'review_ready' && (
+          <span className="agent-status-badge review">
+            <CheckCheck size={11} /> Review Ready
+          </span>
+        )}
+        {task.executionState?.status === 'blocked' && (
+          <span className="agent-status-badge blocked">
+            Needs Input
+          </span>
+        )}
+        {task.assigneeId === 'agent-pool' && (
+          <span className="agent-pool-badge">
+            🤖 Pool
+          </span>
+        )}
         {task.priority !== 'none' && <span className={`priority priority-${task.priority}`}>{task.priority}</span>}
         {task.dueDate && (
           <span className={`task-date ${task.dueDate < todayString ? 'overdue' : ''}`} title={task.dueDate}>
