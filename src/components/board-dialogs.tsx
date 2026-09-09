@@ -472,10 +472,18 @@ export function ColumnEditor({
   );
 }
 
-export function BoardSettings({ board, onClose }: { board: Board; onClose: () => void }) {
+export function BoardSettings({
+  board,
+  initialTab = 'general',
+  onClose
+}: {
+  board: Board;
+  initialTab?: 'general' | 'agents';
+  onClose: () => void;
+}) {
   const router = useRouter();
   const { online } = useSession();
-  const [tab, setTab] = useState<'general' | 'agents'>('general');
+  const [tab, setTab] = useState<'general' | 'agents'>(initialTab);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -783,12 +791,14 @@ export function Sharing({
   board,
   members,
   now,
-  onClose
+  onClose,
+  onOpenAgents
 }: {
   board: Board;
   members: Member[];
   now: number;
   onClose: () => void;
+  onOpenAgents?: () => void;
 }) {
   const { user, online } = useSession();
   const router = useRouter();
@@ -847,6 +857,24 @@ export function Sharing({
       onClose={() => { if (!busy) onClose(); }}
       wide
     >
+      {owner && onOpenAgents && (
+        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#334155' }}>
+            <Bot size={16} style={{ color: '#0a0a0a' }} />
+            <span>Looking to connect <strong>Google Antigravity</strong>, <strong>Claude Code</strong>, or <strong>OpenAI Codex</strong>?</span>
+          </div>
+          <button
+            type="button"
+            className="button secondary small-button"
+            onClick={() => {
+              onClose();
+              onOpenAgents();
+            }}
+          >
+            Manage Agents & MCP →
+          </button>
+        </div>
+      )}
       {owner && (
         <form className="form" onSubmit={invite}>
           <label>

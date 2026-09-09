@@ -20,7 +20,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowLeft, ArrowDown, ArrowUp, CalendarDays, Check, CheckCheck, GripVertical, Plus, Search, Settings2, Sparkles, Users, X } from 'lucide-react';
+import { ArrowLeft, ArrowDown, ArrowUp, Bot, CalendarDays, Check, CheckCheck, GripVertical, Plus, Search, Settings2, Sparkles, Users, X } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { isMemberActive, type Board, type Column, type Member, type Task } from '@/lib/types';
 import { api, errorMessage, useSession } from './providers';
@@ -60,7 +60,7 @@ export function BoardScreen({ boardId }: { boardId: string }) {
   const { user, loading, online } = useSession(); const router = useRouter();
   const [board, setBoard] = useState<Board | null>(null); const [tasks, setTasks] = useState<Task[]>([]); const [members, setMembers] = useState<Member[]>([]); const [unavailable, setUnavailable] = useState(false); const [error, setError] = useState('');
   const [search, setSearch] = useState(''); const [priority, setPriority] = useState('all'); const [mine, setMine] = useState(false); const [busy, setBusy] = useState(false);
-  const [editor, setEditor] = useState<{ task?: Task; columnId: string } | null>(null); const [settings, setSettings] = useState(false); const [sharing, setSharing] = useState(false); const [columnEditor, setColumnEditor] = useState<Column | 'new' | null>(null);
+  const [editor, setEditor] = useState<{ task?: Task; columnId: string } | null>(null); const [settings, setSettings] = useState(false); const [settingsTab, setSettingsTab] = useState<'general' | 'agents'>('general'); const [sharing, setSharing] = useState(false); const [columnEditor, setColumnEditor] = useState<Column | 'new' | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [celebratedColumnId, setCelebratedColumnId] = useState<string | null>(null);
@@ -249,11 +249,25 @@ export function BoardScreen({ boardId }: { boardId: string }) {
               <Link className="button secondary" href={`/assistant?boardId=${board.id}`} title="Generate tasks with AI">
                 <Sparkles size={16} /> AI Helper
               </Link>
+              {owner && (
+                <button
+                  className="button secondary"
+                  onClick={() => { setSettingsTab('agents'); setSettings(true); }}
+                  title="Connect AI Coding Agents & Generate Tokens"
+                >
+                  <Bot size={16} /> Agents & MCP
+                </button>
+              )}
               <button className="button secondary" onClick={() => setSharing(true)}>
                 <Users size={16} />{owner ? 'Share board' : 'People'}
               </button>
               {owner && (
-                <button className="icon-button bordered" onClick={() => setSettings(true)} aria-label="Board settings">
+                <button
+                  className="icon-button bordered"
+                  onClick={() => { setSettingsTab('general'); setSettings(true); }}
+                  aria-label="Board settings"
+                  title="Board settings"
+                >
                   <Settings2 size={18} />
                 </button>
               )}
@@ -353,8 +367,25 @@ export function BoardScreen({ boardId }: { boardId: string }) {
           onMove={move}
         />
       )}
-      {board && settings && <BoardSettings board={board} onClose={() => setSettings(false)} />}
-      {board && sharing && <Sharing board={board} members={members} now={now} onClose={() => setSharing(false)} />}
+      {board && settings && (
+        <BoardSettings
+          board={board}
+          initialTab={settingsTab}
+          onClose={() => setSettings(false)}
+        />
+      )}
+      {board && sharing && (
+        <Sharing
+          board={board}
+          members={members}
+          now={now}
+          onClose={() => setSharing(false)}
+          onOpenAgents={() => {
+            setSettingsTab('agents');
+            setSettings(true);
+          }}
+        />
+      )}
       {board && columnEditor && (
         <ColumnEditor
           board={board}
