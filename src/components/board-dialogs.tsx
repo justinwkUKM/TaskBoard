@@ -152,7 +152,9 @@ export function TaskEditor({
             Assigned to
             <select name="assigneeId" defaultValue={task?.assigneeId || ''}>
               <option value="">Unassigned</option>
-              <option value="agent-pool">🤖 Agent Pool (Any available bot)</option>
+              {(members.some(m => m.type === 'agent') || task?.assigneeId === 'agent-pool' || Boolean(task?.executionState)) && (
+                <option value="agent-pool">🤖 Agent Pool (Any available bot)</option>
+              )}
               {members.map(m => (
                 <option key={m.id} value={m.id}>
                   {m.type === 'agent' ? `🤖 ${m.name} (Agent)` : m.name}
@@ -247,66 +249,74 @@ export function TaskEditor({
                   {report.summary}
                 </p>
 
-                <h4>Objective Test Evidence</h4>
-                <div>
-                  {report.verification.map((v, i) => (
-                    <div className="verification-item" key={i}>
-                      <div className="verification-header">
-                        <span>{v.command}</span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span className={`exit-badge ${v.exitCode === 0 ? 'pass' : 'fail'}`}>
-                            {v.exitCode === 0 ? 'Pass (Exit 0)' : `Fail (Exit ${v.exitCode})`}
-                          </span>
-                          <span className="muted">{v.durationMs}ms</span>
-                        </span>
-                      </div>
-                      {v.outputSnippet && (
-                        <details style={{ marginTop: 6, fontSize: 11, cursor: 'pointer' }}>
-                          <summary className="muted">Command Output Snippet</summary>
-                          <pre className="verification-output">{v.outputSnippet}</pre>
-                        </details>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {report.criteriaChecklist && report.criteriaChecklist.length > 0 && (
-                  <>
-                    <h4>Acceptance Criteria Checklist</h4>
+                <details className="review-details-accordion">
+                  <summary className="review-details-summary">
+                    <span>Verification & Diff Details ({report.verification.length} tests, {report.filesChanged?.length || 0} files)</span>
+                    <span className="muted" style={{ fontSize: 11 }}>View details ▾</span>
+                  </summary>
+                  <div style={{ marginTop: 10 }}>
+                    <h4>Objective Test Evidence</h4>
                     <div>
-                      {report.criteriaChecklist.map((c, i) => (
-                        <div className="criteria-item" key={i}>
-                          {c.satisfied ? (
-                            <Check size={14} style={{ color: '#166534', flexShrink: 0, marginTop: 2 }} />
-                          ) : (
-                            <span style={{ color: '#b91c1c', fontWeight: 700, flexShrink: 0 }}>✕</span>
-                          )}
-                          <div>
-                            <strong>{c.criterion}</strong>
-                            {c.explanation && <p className="muted" style={{ margin: '2px 0 0', fontSize: 11 }}>{c.explanation}</p>}
+                      {report.verification.map((v, i) => (
+                        <div className="verification-item" key={i}>
+                          <div className="verification-header">
+                            <span>{v.command}</span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span className={`exit-badge ${v.exitCode === 0 ? 'pass' : 'fail'}`}>
+                                {v.exitCode === 0 ? 'Pass (Exit 0)' : `Fail (Exit ${v.exitCode})`}
+                              </span>
+                              <span className="muted">{v.durationMs}ms</span>
+                            </span>
                           </div>
+                          {v.outputSnippet && (
+                            <details style={{ marginTop: 6, fontSize: 11, cursor: 'pointer' }}>
+                              <summary className="muted">Command Output Snippet</summary>
+                              <pre className="verification-output">{v.outputSnippet}</pre>
+                            </details>
+                          )}
                         </div>
                       ))}
                     </div>
-                  </>
-                )}
 
-                {report.filesChanged && report.filesChanged.length > 0 && (
-                  <>
-                    <h4>Files Changed ({report.filesChanged.length})</h4>
-                    <div>
-                      {report.filesChanged.map((f, i) => (
-                        <div className="file-changed-row" key={i}>
-                          <span>{f.path}</span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span className={`file-change-badge ${f.changeType}`}>{f.changeType}</span>
-                            <span className="muted" style={{ fontSize: 10 }}>+{f.insertions} -{f.deletions}</span>
-                          </span>
+                    {report.criteriaChecklist && report.criteriaChecklist.length > 0 && (
+                      <>
+                        <h4>Acceptance Criteria Checklist</h4>
+                        <div>
+                          {report.criteriaChecklist.map((c, i) => (
+                            <div className="criteria-item" key={i}>
+                              {c.satisfied ? (
+                                <Check size={14} style={{ color: '#166534', flexShrink: 0, marginTop: 2 }} />
+                              ) : (
+                                <span style={{ color: '#b91c1c', fontWeight: 700, flexShrink: 0 }}>✕</span>
+                              )}
+                              <div>
+                                <strong>{c.criterion}</strong>
+                                {c.explanation && <p className="muted" style={{ margin: '2px 0 0', fontSize: 11 }}>{c.explanation}</p>}
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </>
-                )}
+                      </>
+                    )}
+
+                    {report.filesChanged && report.filesChanged.length > 0 && (
+                      <>
+                        <h4>Files Changed ({report.filesChanged.length})</h4>
+                        <div>
+                          {report.filesChanged.map((f, i) => (
+                            <div className="file-changed-row" key={i}>
+                              <span>{f.path}</span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span className={`file-change-badge ${f.changeType}`}>{f.changeType}</span>
+                                <span className="muted" style={{ fontSize: 10 }}>+{f.insertions} -{f.deletions}</span>
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </details>
               </div>
             )}
           </div>
