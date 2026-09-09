@@ -217,7 +217,7 @@ async function acceptInvite(user: DecodedIdToken, input: unknown) {
   return db.runTransaction(async tx => {
     const [snap, inviteSnap] = await Promise.all([tx.get(ref), tx.get(inviteRef)]); const board = snap.data() as Board; const invite = inviteSnap.data();
     assert(board && !board.deleting && invite, 404, 'This invitation is unavailable.');
-    assert(user.email_verified && invite.email === user.email?.toLowerCase(), 403, 'Sign in with the Google email this invitation was created for.');
+    assert(user.email_verified && invite.email === user.email?.toLowerCase(), 403, 'Sign in with the email this invitation was created for.');
     if (invite.state === 'accepted' && invite.acceptedBy === user.uid && board.memberIds.includes(user.uid)) return { boardId: ref.id };
     assert(invite.state === 'pending' && invite.expiresAt > Date.now(), 410, 'This invitation expired or was revoked. Ask the owner for a new link.');
     assert(board.memberIds.includes(user.uid) || board.memberIds.length < LIMITS.members, 422, 'This board has reached its member limit.');

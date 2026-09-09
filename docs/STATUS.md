@@ -14,11 +14,12 @@ Updated 2026-09-09.
 - Development Firestore rules and indexes deployed. Production deployment command reached successful database/index deployment; rerun after any rules change.
 - Vercel project `taskboard` created and linked in `waqasobeidy111gmailcoms-projects`. Existing production URL: https://taskboard.waqasobeidy.com
 - Production deployment `dpl_Bo4YmL55HFJbTssUnPK768B6RcVk` is READY and aliased to https://taskboard.waqasobeidy.com. The public shell responds over HTTPS.
+- Email Link sign-in is enabled in both Firebase projects (`signIn.email.enabled: true`) and deployed in production as `dpl_CXMw5YLAk7pThNLjM3X6VWY1mueE`.
 - `npm run typecheck`, `npm run lint`, and `npm run build` pass. Lint has five non-blocking warnings in existing/style files.
 
 ## Remaining launch gates
 
-1. Enable Google as a sign-in provider in Firebase Console for both projects, then add localhost, the Vercel production hostname, and the exact preview hostname to Authorized domains. The public Identity Platform REST initializer was attempted and rejected with `BILLING_NOT_ENABLED`; do not attach billing just to bypass this free-plan setup.
+1. Google provider is enabled in both Firebase projects. Add localhost, the Vercel production hostname, and the exact preview hostname to Authorized domains as new preview URLs are created. The public Identity Platform REST initializer was attempted and rejected with `BILLING_NOT_ENABLED`; do not attach billing just to bypass this free-plan setup.
 2. Populate Vercel environment variables from each Firebase web app config plus server-only Admin credentials. Production and Preview must use their respective Firebase projects. `VERCEL_OIDC_TOKEN` in the local `.env.local` is CLI-managed and must never be copied into app variables.
 3. Deploy a preview and production build after environment configuration, then complete real Google OAuth with two accounts. Emulator tests cannot prove Google’s hosted login.
 4. Install Java/OpenJDK on the development machine if running Firebase Emulator Suite; this machine currently has OpenJDK 21 available through Homebrew but the shell may need `JAVA_HOME` configured.
@@ -30,4 +31,3 @@ ESLint reports an anonymous PostCSS export, unused imports in an existing landin
 ## Future Architecture & Roadmap Plans
 
 - **AI Agent Collaboration via MCP**: Architectural plan and specification for local coding agent integration (Claude Code, OpenCode, Codex) via Model Context Protocol (MCP), documented in [`AI_AGENT_COLLABORATION_MCP.md`](./AI_AGENT_COLLABORATION_MCP.md).
-

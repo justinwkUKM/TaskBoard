@@ -12,9 +12,13 @@ async function request(url, method = 'GET', body) {
 const base = `https://identitytoolkit.googleapis.com/admin/v2/projects/${project}`;
 if (mode === 'inspect') {
   const config = await request(`${base}/config`);
-  console.log(JSON.stringify({ name: config.name, authorizedDomains: config.authorizedDomains, signIn: config.signIn, notification: config.notification && { sendEmail: config.notification.sendEmail } }, null, 2));
+  console.log(JSON.stringify({ name: config.name, authorizedDomains: config.authorizedDomains, email: config.signIn?.email }, null, 2));
   const providers = await request(`${base}/defaultSupportedIdpConfigs`);
   console.log(JSON.stringify({ providers: providers.defaultSupportedIdpConfigs?.map(p => ({ name: p.name, enabled: p.enabled, hasClientId: Boolean(p.clientId) })) }));
+}
+if (mode === 'enable-email-link') {
+  const updated = await request(`${base}/config?updateMask=signIn.email.enabled,signIn.email.passwordRequired`, 'PATCH', { signIn: { email: { enabled: true, passwordRequired: false } } });
+  console.log(JSON.stringify({ project, email: updated.signIn?.email }));
 }
 if (mode === 'enable-google') {
   try { await request(`https://identitytoolkit.googleapis.com/v2/projects/${project}/identityPlatform:initializeAuth`, 'POST'); } catch (error) { if (!String(error).includes('already')) throw error; }

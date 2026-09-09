@@ -1,4 +1,4 @@
-const CACHE_NAME = 'taskboard-v1';
+const CACHE_NAME = 'taskboard-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/boards',
@@ -58,7 +58,9 @@ self.addEventListener('fetch', (event) => {
     url.hostname.includes('firebase') ||
     url.hostname.includes('googleapis') ||
     url.hostname.includes('identitytoolkit') ||
-    url.pathname.startsWith('/api/')
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/auth/') ||
+    url.searchParams.has('oobCode')
   ) {
     return;
   }

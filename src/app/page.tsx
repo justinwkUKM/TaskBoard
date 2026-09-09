@@ -7,6 +7,7 @@ import { useSession, errorMessage } from '@/components/providers';
 import { Header, Footer, ErrorNotice } from '@/components/ui';
 import { LandingHeroBoard } from '@/components/landing-hero-board';
 import { LandingBentoGrid } from '@/components/landing-bento-grid';
+import { EmailSignIn } from '@/components/email-sign-in';
 
 export default function Home() {
   const { user, login, loading } = useSession();
@@ -62,6 +63,7 @@ export default function Home() {
               <ArrowRight size={18} />
             </button>
             <ErrorNotice message={error} />
+            <EmailSignIn />
             <span className="hero-note">
               <Check size={14} /> Free to start. Refreshingly simple.
             </span>

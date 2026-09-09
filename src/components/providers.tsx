@@ -27,6 +27,11 @@ export async function api<T = { ok: boolean }>(path: string, method = 'GET', dat
 }
 export function errorMessage(error: unknown) {
   if (error instanceof Error) {
+    if (error.message.includes('expired-action-code') || error.message.includes('invalid-action-code')) return 'This link has expired or was already used. Request a new sign-in link.';
+    if (error.message.includes('invalid-email')) return 'Enter a valid email address.';
+    if (error.message.includes('invalid-credential') || error.message.includes('user-mismatch')) return 'The email does not match this link, or the link is no longer valid. Check your email or request a new link.';
+    if (error.message.includes('too-many-requests') || error.message.includes('quota-exceeded')) return 'Too many sign-in emails have been requested. Please try again later.';
+    if (error.message.includes('network-request-failed')) return 'Check your connection and try again.';
     if (error.message.includes('popup-closed-by-user') || error.message.includes('cancelled-popup-request')) return 'Sign-in was cancelled. Try again when you’re ready.';
     if (error.message.includes('popup-blocked')) return 'Allow popups for this website, then try signing in again.';
     return error.message;
