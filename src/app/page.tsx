@@ -7,6 +7,7 @@ import { useSession, errorMessage } from '@/components/providers';
 import { Header, Footer, ErrorNotice } from '@/components/ui';
 import { LandingHeroBoard } from '@/components/landing-hero-board';
 import { LandingBentoGrid } from '@/components/landing-bento-grid';
+import { LandingAgentCollab } from '@/components/landing-agent-collab';
 import { EmailSignIn } from '@/components/email-sign-in';
 
 export default function Home() {
@@ -75,6 +76,9 @@ export default function Home() {
 
         {/* Tier 3: Product Showcase Modern Bento Grid */}
         <LandingBentoGrid />
+
+        {/* AI Agent Collaboration Showcase */}
+        <LandingAgentCollab />
       </main>
       <Footer />
     </>
