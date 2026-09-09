@@ -26,3 +26,8 @@ Updated 2026-09-09.
 ## Known non-blocking warnings
 
 ESLint reports an anonymous PostCSS export, unused imports in an existing landing component, and an unoptimized avatar `<img>` in the existing UI. No lint errors or build failures remain.
+
+## Future Architecture & Roadmap Plans
+
+- **AI Agent Collaboration via MCP**: Architectural plan and specification for local coding agent integration (Claude Code, OpenCode, Codex) via Model Context Protocol (MCP), documented in [`AI_AGENT_COLLABORATION_MCP.md`](./AI_AGENT_COLLABORATION_MCP.md).
+
