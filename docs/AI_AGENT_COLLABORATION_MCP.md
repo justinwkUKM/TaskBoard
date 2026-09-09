@@ -1,220 +1,117 @@
-# TaskBoard AI Agent Collaboration (MCP Architecture)
+# TaskBoard AI Agent Collaboration (MCP Architecture & Technical Specification)
 
-**Status:** Planned Roadmap Architecture  
-**Execution Model:** Local-First via Model Context Protocol (MCP)  
-**Target Agents:** Claude Code, OpenCode, Codex, Cursor, and any MCP-compliant coding assistant  
+**Status:** Production-Ready Architectural Blueprint  
+**Protocol:** Model Context Protocol (MCP)  
+**Execution Topology:** Local-First Single-Task Runner (Phase 1) with Orchestrated Recovery  
+**Target Hosts:** Claude Code CLI, OpenCode, Codex, Cursor, and MCP-compliant hosts  
 
 ---
 
-## 1. Executive Summary & Vision
+## 1. Executive Summary & Core Philosophy
 
-Traditional issue trackers and Kanban boards are built exclusively for humans to manually read, discuss, and update task statuses. As autonomous coding agents become proficient team members, this separation creates friction: developers end up reading tasks from a web board, copying prompts into terminal CLIs, and manually updating tickets when code is done.
+TaskBoard bridges engineering task planning and autonomous code execution by treating AI coding agents as accountable, authenticated team collaborators on the same Kanban board.
 
-**TaskBoard AI Agent Collaboration** transforms TaskBoard into a shared canvas where humans and AI coding agents work side by side as first-class teammates on the same Kanban board.
+Rather than relying on ungrounded cloud sandboxes or fragile terminal copy-pasting, TaskBoard adopts an **orchestrated, local-first execution model**. The developer's machine hosts the repository, compilers, and test suites, while TaskBoard provides the coordination plane: atomic lease claiming, task context, human clarification channels, execution telemetry, and review gating.
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        TaskBoard Cloud Service                         │
-│                                                                        │
-│   [To do / Agent Pool] ──────► [In Progress] ──────► [Done (Struck)]   │
-│             ▲                         ▲                     ▲          │
-└─────────────┼─────────────────────────┼─────────────────────┼──────────┘
-              │ (1) Claim Task          │ (2) Progress Logs   │ (3) Completion Report
-              ▼                         ▼                     ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                     Developer's Local Machine                          │
-│                                                                        │
-│   ┌────────────────────────────────────────────────────────────────┐   │
-│   │                 TaskBoard MCP Server Layer                     │   │
-│   │   Exposes tools: claim_task, get_context, post_report, etc.    │   │
-│   └───────────────────────────────┬────────────────────────────────┘   │
-│                                   │ MCP Protocol                       │
-│                                   ▼                                    │
-│   ┌────────────────────────────────────────────────────────────────┐   │
-│   │            Coding Agent (Claude Code / OpenCode)               │   │
-│   │   - Inspects local git repo, dependencies, environment         │   │
-│   │   - Implements code, executes unit tests, fixes regressions    │   │
-│   │   - Verifies acceptance criteria autonomously                  │   │
-│   │   - Generates comprehensive markdown report and strikes card   │   │
-│   └────────────────────────────────────────────────────────────────┘   │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 2. Core Architectural Principles
-
-### A. Local Execution
-- The coding agent runs **locally** on the developer's workstation inside their existing repository directory.
-- **Benefits:**
-  - Zero cloud VM/container infrastructure costs.
-  - Access to local git branches, uncommitted files, private packages, and `.env.local` variables.
-  - Complete data privacy: code stays on the developer's computer.
-
-### B. Standardized MCP (Model Context Protocol) Integration
-- Rather than maintaining proprietary plugins for dozens of AI tools, TaskBoard exposes an official **Model Context Protocol (MCP)** server interface.
-- Any MCP-compliant tool (e.g., Claude Code, Claude Desktop, Cursor) connects instantly by adding TaskBoard to its MCP configuration.
-
-### C. Dual-Assignment Model (Direct Assignment or Agent Pool)
-1. **Direct Assignment:** A human assigns a card directly to a specific specialist agent (e.g., `Claude Code (Local)` or `Frontend Bot`).
-2. **Agent Pool (FIFO):** Tasks can be assigned to the generic `Agent Pool` or dropped into a designated automation column. Any connected, idle local agent claims available tasks on a first-come, first-served basis with atomic locking.
-
-### D. Autonomous Acceptance & Detailed Completion Reports
-- **No strict human gate required:** The agent independently verifies the requirements described in the task (or infers them from context and local test suites).
-- **Mandatory Completion Report:** Before moving a task to **Done**, the agent must generate and attach a structured, transparent report documenting:
-  - Summary of architecture decisions.
-  - List of created and modified files with line counts.
-  - Test suites executed and pass/fail outputs.
-  - Git branch and commit references.
-
----
-
-## 3. The TaskBoard MCP Toolset
-
-The TaskBoard MCP server exposes the following standardized tools to the local coding assistant:
-
-```json
-[
-  {
-    "name": "taskboard_get_assigned_tasks",
-    "description": "Lists all tasks on the board that are assigned to this agent or are currently unassigned in the Agent Pool.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "boardId": { "type": "string", "description": "Optional board ID filter" },
-        "includePool": { "type": "boolean", "default": true }
-      }
-    }
-  },
-  {
-    "name": "taskboard_claim_task",
-    "description": "Atomically claims a task, locks it to this agent ID, and moves it to the 'In Progress' column.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "taskId": { "type": "string" },
-        "initialPlan": { "type": "string", "description": "Brief summary of how the agent plans to tackle the task" }
-      },
-      "required": ["taskId"]
-    }
-  },
-  {
-    "name": "taskboard_post_task_update",
-    "description": "Appends an execution log or status message to the task card's live activity stream.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "taskId": { "type": "string" },
-        "message": { "type": "string" },
-        "level": { "type": "string", "enum": ["info", "warning", "milestone"] }
-      },
-      "required": ["taskId", "message"]
-    }
-  },
-  {
-    "name": "taskboard_ask_human_question",
-    "description": "Moves the task to 'Needs Input' and posts a blocking question to the human collaborator.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "taskId": { "type": "string" },
-        "question": { "type": "string" }
-      },
-      "required": ["taskId", "question"]
-    }
-  },
-  {
-    "name": "taskboard_complete_task",
-    "description": "Submits the final completion report, strikes off the task, and moves it into the 'Done' column.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "taskId": { "type": "string" },
-        "completionReport": {
-          "type": "string",
-          "description": "Detailed markdown report detailing changes made, files touched, test outputs, and git commit."
-        },
-        "branchName": { "type": "string" }
-      },
-      "required": ["taskId", "completionReport"]
-    }
-  }
-]
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                             TaskBoard Cloud Plane                                │
+│                                                                                  │
+│   [To Do] ───────────────► [In Progress] ───────────────► [Ready for Review]     │
+│      │                           ▲                                ▲              │
+│      │ 1. Transactional Claim    │ 2. Lease Heartbeats            │ 3. Submit PR │
+│      │    & Base Commit Lock     │    & Progress Telemetry        │    & Report  │
+│      ▼                           │                                │              │
+│  ┌───────────────────────────────┴────────────────────────────────┴───────────┐  │
+│  │ Authenticated TaskBoard API (/api/agent/v1)                                │  │
+│  │ - Scoped Agent Tokens (Read/Write tasks, no admin/member permissions)      │  │
+│  │ - Transactional Leases & Stale-Run Rejection                               │  │
+│  │ - Subcollection Execution Runs & Audit Events                              │  │
+│  └──────────────────────────────────────┬─────────────────────────────────────┘  │
+└─────────────────────────────────────────┼────────────────────────────────────────┘
+                                          │ HTTPS / SSE
+                                          ▼
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                      Developer Workstation (Local Runner)                        │
+│                                                                                  │
+│  ┌────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Local TaskBoard Runner / MCP Server Process                                │  │
+│  │ - Scoped Environment Config (Strict development credentials; no .env dump) │  │
+│  │ - Git Worktree Manager: Isolated `agent/{taskId}/{attempt}` branch checkout│  │
+│  │ - External Process Supervisor: Wall-clock timeouts, turn & budget caps     │  │
+│  │ - Lease Heartbeat Daemon & Crash Forensics Preserver                       │  │
+│  └──────────────────────────────────────┬─────────────────────────────────────┘  │
+│                                         │ Standard MCP Tool Invocations          │
+│                                         ▼                                        │
+│  ┌────────────────────────────────────────────────────────────────────────────┐  │
+│  │ Coding Agent Execution Engine (e.g., Claude Code CLI in Worktree)          │  │
+│  │ - Reads repo context, verifies bounded reproduction                       │  │
+│  │ - Implements changes, runs local test commands (`npm test`, `vitest`)      │  │
+│  │ - Prepares verifiable evidence: command exit codes, commit SHA, PR URL     │  │
+│  └────────────────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. End-to-End Workflow Walkthrough
+## 2. Fundamental Architectural Decisions
 
-### 1. Developer Setup
-1. On TaskBoard Web, navigate to **Board Settings** → **Integrations & MCP**.
-2. Click **Add Agent Teammate** → select agent persona (e.g. `Claude Code`).
-3. Copy the generated MCP connection snippet:
-   ```json
-   {
-     "mcpServers": {
-       "taskboard": {
-         "command": "npx",
-         "args": ["-y", "@taskboard/mcp-server"],
-         "env": {
-           "TASKBOARD_API_KEY": "tb_live_sec_...",
-           "TASKBOARD_BOARD_ID": "board_abc123"
-         }
-       }
-     }
-   }
-   ```
-4. Paste into `~/.claude.json` or project MCP config.
+### 2.1. MCP Scope & Orchestration Model
+- **Protocol Role:** TaskBoard provides an MCP server interface exposing tools and context resources. 
+- **Orchestration Reality:** MCP provides standard tool calling and server-to-client notifications, but does not provide a portable guarantee that a host will independently begin coding or handle OS signals. The host environment still requires deliberate invocation and lifecycle management.
+- **Phase 1 Scope:** Explicit, single-task execution. The developer initiates a task run (e.g. `npx @taskboard/runner run --task=<id>` or prompting Claude Code: `claude "Work on task <id> using TaskBoard MCP"`). Unattended multi-task daemons are deferred until single-task lifecycle resilience is proven.
 
-### 2. Task Intake & Atomic Lock
-- The human drops a task into **To do** assigned to `Agent Pool`:
-  - **Title:** `Add rate limiting to /api/auth/login endpoint`
-  - **Description:** `5 attempts per 15 minutes per IP. Use in-memory Redis or Map fallback. Return 429 with Retry-After.`
-- In terminal, the developer runs:
+### 2.2. Worktree Isolation vs. Sandboxing
+- **Worktree Boundary:** Every execution attempt is allocated a dedicated Git worktree:
   ```bash
-  claude "Check TaskBoard for tasks in the pool and implement the next available task."
+  git worktree add ../taskboard-runs/<taskId>-<attempt> -b agent/<taskId>/attempt-<attempt> <baseCommit>
   ```
-- Claude calls `taskboard_get_assigned_tasks()`.
-- Claude calls `taskboard_claim_task("task_123", "Creating rate-limiter middleware with unit tests")`.
-- TaskBoard immediately moves the card to **In progress** in real-time across all connected human browser sessions.
+  This prevents index corruption, dirty tree overwrites, and race conditions with the developer’s active VS Code session.
+- **Worktrees are NOT Security Sandboxes:** A worktree shares `.git` objects and executes under the local user account with access to host networking and filesystems.
+- **Security & Environment Hardening:**
+  - Never mirror the developer’s full `.env.local`. Inject only explicitly declared, task-scoped test credentials.
+  - Retain failed worktrees for post-mortem forensics; clean up only when changes are confirmed pushed or superseded.
+  - Treat all task descriptions, card comments, and labels as **untrusted input**. The runner must never evaluate task text directly in shell commands (`eval`, unescaped string interpolation) or accept arbitrary paths from card metadata.
 
-### 3. Local Execution & Self-Verification
-- Claude analyzes repository code, installs needed packages, and writes code.
-- Claude runs the local test suite (`npm test`).
-- If tests fail, Claude iterates locally until 100% green.
-- Claude verifies all items in the task description:
-  - 5 attempts per 15 min verified.
-  - HTTP 429 status and header verified.
-  - Unit tests created and passing.
+### 2.3. Workflow Gating: "Ready for Review" vs. "Done"
+- **Separation of Concerns:** "Auto-Done" and "Auto-Merge" are distinct policies with differing risk profiles.
+- **Default Lifecycle for Code Tasks:**
+  $$\text{To Do} \longrightarrow \text{In Progress} \longrightarrow \text{Ready for Review} \longrightarrow \text{Done}$$
+- **Ready for Review Requirements:**
+  - Branch pushed to remote repository and/or Pull Request created.
+  - Structured completion report attached with exact commands executed and exit codes.
+- **Done Gate:**
+  - Moving to **Done** requires an authorized human approval or a cryptographically verified webhook event from a merged PR.
+  - **Backend Enforcement:** The transition into the `Done` column is blocked at the API layer for agent tokens. Prompting an agent not to mark Done is insufficient; the backend rejects unauthorized column transitions.
+  - Autonomous Auto-Done is an explicit, per-task opt-in reserved strictly for zero-code workflows (e.g. documentation generation or ticket enrichment).
 
-### 4. Completion Report & Done Celebration
-- Claude invokes `taskboard_complete_task()` with a structured completion report:
-  ```markdown
-  ### 🤖 Task Completed: Rate Limiting on Login
+### 2.4. Atomic Leases & Crash Recovery
+- **The Failure Mode:** Laptop lids close, processes crash with OOM, networks drop, or runners hang mid-execution. A simple `claimedBy` string creates permanent deadlocks.
+- **Execution Run Record:** Every attempt creates an immutable subcollection document: `/boards/{boardId}/tasks/{taskId}/runs/{runId}`.
+- **Lease Mechanics:**
+  - The runner claims a task inside a **Firestore transaction**, verifying `task.currentRunId == null` and setting `leaseExpiresAt = now + 90s`.
+  - **Heartbeats:** The runner sends background heartbeats (`POST /api/agent/v1/runs/{runId}/heartbeat`) every 30s to extend `leaseExpiresAt`.
+  - **Optimistic Concurrency:** All updates (logs, questions, review submissions) must present the valid `runId`. Stale or expired runs receive `409 Conflict` and are rejected.
+  - **Idempotency & External Side-Effects:** Firestore transaction callbacks retry automatically on conflict. Network calls (spawning CLIs, pushing branches, opening PRs) **must never run inside transaction callbacks**.
+  - **Recovery Strategy:** Phase 1 uses **supervised recovery**. If a run expires, the task is flagged with a warning badge ("Agent Run Timed Out"). A human or explicit CLI flag resets or re-assigns the run; automatic aggressive re-claiming is disallowed to avoid infinite crash loops.
 
-  #### Changes Made
-  - Added sliding-window rate limit middleware in `src/middleware/rate-limit.ts`.
-  - Bound `/api/auth/login` to the limiter.
-  - Added unit test suite covering rate exhaustion and reset.
+### 2.5. Runner-Enforced Operational Budgets
+- **Supervisor Limits:** Limits are enforced externally by the runner process supervisor, not by the LLM:
+  1. **Wall-Clock Deadline:** Hard ceiling (e.g., 15 minutes default). When exceeded, the supervisor terminates the child process tree (`SIGTERM` $\to$ 5s $\to$ `SIGKILL`).
+  2. **Model Turn Limits:** Enforced via CLI flags (e.g. Claude Code `--max-turns`).
+  3. **Spend Limits:** Enforced via provider spending ceilings where available.
+- **Clarification Thresholds:** The agent is given a bounded window (e.g. 2 turns / 3 minutes) to inspect code and error traces before asking questions. It must request human input (`taskboard_ask_human_question`) only when forced to invent missing business logic or product requirements.
 
-  #### Verification Results
-  - Ran `npm test tests/rate-limit.test.ts` (4 passed, 0 failed).
-  - Validated 429 response structure and `Retry-After` headers.
-
-  #### Git Metadata
-  - Branch: `agent/rate-limit-login`
-  - Commit: `d4e5f6a`
-  ```
-- TaskBoard updates:
-  - The task card moves to **Done**.
-  - The title strikes off with the signature lime line (`line-through`).
-  - Green `CheckCheck` badge pops into view.
-  - The Done column pulses with celebration.
+### 2.6. Decoupled Execution State
+- TaskBoard supports user-defined column names and pipelines. Agent logic must never depend on a column being named `"In Progress"` or `"Done"`.
+- Board settings map semantic stages (`todo`, `in_progress`, `review`, `done`) to board column IDs.
+- High-frequency telemetry (terminal output, tool execution logs) is written to `/runs/{runId}/events` instead of bloating the main Task document toward Firestore's 1MB limit.
 
 ---
 
-## 5. Data Schema Extensions
+## 3. Data Model Specification
 
+### 3.1. Extended Member Entity
 ```typescript
 export interface Member {
   id: string;
@@ -222,57 +119,162 @@ export interface Member {
   email?: string;
   photoURL?: string;
   role: 'owner' | 'member';
-  // Agent additions:
   type: 'human' | 'agent';
-  agentProvider?: 'claude-code' | 'opencode' | 'codex' | 'custom';
-  status?: 'idle' | 'working' | 'blocked' | 'offline';
-  lastHeartbeat?: number;
+  agentConfig?: {
+    provider: 'claude-code' | 'opencode' | 'codex' | 'custom';
+    runtime: 'local-runner' | 'mcp-host';
+    allowedRepositories: string[];
+    capabilities: string[]; // e.g. ['typescript', 'vitest', 'refactor']
+  };
+  status?: 'idle' | 'working' | 'offline';
+  lastSeenAt?: number;
 }
+```
 
+### 3.2. Task Entity (Cloud Coordinating Plane)
+```typescript
 export interface Task {
   id: string;
   columnId: string;
   title: string;
   description: string;
   priority: 'none' | 'low' | 'medium' | 'high';
-  assigneeId?: string | null; // Human ID, Agent ID, or 'agent-pool'
+  assigneeId?: string | null; // Member ID or 'agent-pool'
   rank: number;
   revision: number;
-  // Agent additions:
-  claimedBy?: string | null; // Agent member ID actively running the task
-  completionReport?: string; // Markdown summary generated upon completion
-  executionLogs?: Array<{
-    timestamp: number;
-    message: string;
-    level: 'info' | 'warning' | 'milestone';
-  }>;
+  
+  // Agent Execution State
+  executionState: {
+    status: 'unassigned' | 'claimed' | 'active' | 'review_ready' | 'blocked' | 'failed';
+    currentRunId?: string | null;
+    leaseExpiresAt?: number | null;
+    attemptCount: number;
+    activeBranch?: string | null;
+    pullRequestUrl?: string | null;
+    reviewReport?: StructuredReviewReport | null;
+  };
 }
+```
 
-export interface AgentApiKey {
-  id: string;
-  boardId: string;
-  keyHash: string;
-  label: string;
-  createdBy: string;
-  createdAt: number;
-  lastUsedAt?: number;
-  revoked: boolean;
+### 3.3. Execution Run Subcollection (`/tasks/{id}/runs/{runId}`)
+```typescript
+export interface ExecutionRun {
+  runId: string;
+  taskId: string;
+  agentId: string;
+  attempt: number;
+  status: 'claimed' | 'active' | 'submitted' | 'expired' | 'failed' | 'cancelled';
+  
+  // Git & Environment Provenance
+  baseCommit: string;
+  targetBranch: string;
+  headCommit?: string | null;
+  worktreePath: string;
+  
+  // Timestamps & Leases
+  startedAt: number;
+  leaseExpiresAt: number;
+  completedAt?: number | null;
+  
+  // Budget & Termination
+  limits: {
+    maxDurationSeconds: number;
+    maxTurns?: number;
+  };
+  terminationReason?: 'completed' | 'timeout' | 'error' | 'user_cancelled';
+  errorMessage?: string | null;
+}
+```
+
+### 3.4. Structured Review Report Schema
+```typescript
+export interface StructuredReviewReport {
+  summary: string;
+  baseCommit: string;
+  headCommit: string;
+  pullRequestUrl?: string;
+  branchName: string;
+  
+  // Objective Evidence
+  verification: Array<{
+    command: string;      // e.g. "npm test tests/auth.test.ts"
+    exitCode: number;     // 0 = pass
+    durationMs: number;
+    outputSnippet: string;
+  }>;
+  
+  // Acceptance Verification
+  criteriaChecklist: Array<{
+    criterion: string;
+    satisfied: boolean;
+    explanation: string;
+  }>;
+  
+  filesChanged: Array<{
+    path: string;
+    changeType: 'added' | 'modified' | 'deleted';
+    insertions: number;
+    deletions: number;
+  }>;
+  
+  knownLimitations?: string[];
 }
 ```
 
 ---
 
-## 6. Phased Implementation Roadmap
+## 4. MCP Tool Interface (Phase 1)
 
-1. **Phase 1: Agent Identity & API Authentication**
-   - Support `Member.type = 'agent'`.
-   - Add Board Settings UI to generate and revoke Agent API keys.
-2. **Phase 2: TaskBoard MCP Server Package (`@taskboard/mcp-server`)**
-   - Publish lightweight Node.js MCP server implementing the Model Context Protocol over stdio / HTTP SSE.
-   - Support `claim_task`, `list_tasks`, `post_update`, and `complete_task`.
-3. **Phase 3: Task Card Report & Activity Log UI**
-   - Expandable "Agent Report" tab inside `TaskEditor` modal displaying the formatted markdown changelog and execution history.
-   - Status indicators on cards when an agent is actively computing.
-4. **Phase 4: Agent Pool Auto-Triage**
-   - Dedicated "Agent Pool" assignee option in task creation dialog.
-   - Optimistic concurrency control ensuring zero duplicate task claims across multiple concurrent local agents.
+The TaskBoard MCP Server exposes tools with strict parameter schemas and authorization controls:
+
+| Tool Name | Parameters | Behavior |
+|---|---|---|
+| `taskboard_get_task` | `taskId: string` | Retrieves task details, accepted criteria, and active repository mapping. |
+| `taskboard_claim_task` | `taskId: string, baseCommit: string` | Acquires transactional lease on task; provisions initial run record; transitions column to `In Progress`. |
+| `taskboard_heartbeat` | `runId: string` | Renews the execution lease expiration timestamp by 90 seconds. |
+| `taskboard_record_log` | `runId: string, level: 'info'\|'warn'\|'milestone', message: string` | Appends a structured log event to the run's audit stream. |
+| `taskboard_ask_human_question` | `runId: string, question: string, context?: string` | Transitions task to `Blocked/Needs Input`; records the question; notifies human collaborators. |
+| `taskboard_submit_for_review` | `runId: string, report: StructuredReviewReport` | Validates verification evidence; transitions task to `Ready for Review`; releases lease. |
+
+> **Security Note:** There is intentionally **no** `taskboard_mark_done` tool exposed to agent tokens. The transition into `Done` is restricted to authorized human sessions or verified GitHub/GitLab merge webhooks.
+
+---
+
+## 5. Failure Mode & Edge Case Analysis
+
+| Scenario | Risk | Mitigation Strategy |
+|---|---|---|
+| **Laptop sleep / Wi-Fi disconnect** | Task stays locked indefinitely. | Lease expires after 90s of missed heartbeats. Task displays an "Agent Offline" warning. Developer can resume the run or manually release the lease. |
+| **Simultaneous claims on pool** | Race condition between multiple runners. | Firestore transaction with precondition: `executionState.status == 'unassigned'` and `currentRunId == null`. First transaction succeeds; subsequent claims receive atomic rollback and pick the next candidate. |
+| **Human edits card during run** | Agent works on stale requirements. | Task revision number is checked at claim time and included in heartbeats. If task revision advances, the runner warns the agent or halts execution. |
+| **Agent hallucinating test pass** | Broken code submitted to review. | The runner executes verification commands directly via the supervisor, capturing actual OS exit codes (`exitCode === 0`) rather than relying on agent self-assertion. |
+| **Compaction / Long output bloat** | Firestore document limit (1MB) exceeded. | Execution logs stream to a subcollection (`/runs/{runId}/events`); only the finalized summary report is saved to the task record. |
+| **Failed Git push** | Task claimed and modified locally, but unreviewable. | `taskboard_submit_for_review` requires a reachable remote branch or PR URL. If the push fails, the submission is rejected and the worktree is preserved for manual recovery. |
+
+---
+
+## 6. Implementation Milestones
+
+### Phase 1: Explicit Single-Task Execution (MVP Scope)
+- **Goal:** One repository, one supported runner CLI, explicit execution of one task, isolated worktrees, recoverable leases, bounded runtime, human review gate.
+- **Deliverables:**
+  1. Scoped Agent Token generation in Board Settings.
+  2. Next.js API endpoints: `/api/agent/v1/claim`, `/heartbeat`, `/review-submit`.
+  3. Standalone runner package (`@taskboard/runner`) managing Git worktrees and supervising Claude Code execution.
+  4. Worktree recovery utility (`taskboard-runner recover <runId>`).
+  5. UI updates: `Ready for Review` status badge and structured report viewer in Task modal.
+
+### Phase 2: Resilience Verification Suite
+- **Goal:** Validate recovery and concurrency before multi-agent rollout.
+- **Required Automated Test Scenarios:**
+  - Simulated process kill (`kill -9`) during execution and verify lease expiration.
+  - Concurrent claim race test (5 runners attempting to claim 1 task simultaneously).
+  - Stale agent rejection test (agent attempting to submit review after lease has been reassigned).
+  - Worktree cleanup verification under both graceful exit and unhandled exception.
+
+### Phase 3: Agent Pool & Autonomous Triage
+- **Goal:** Unattended execution across multiple local and remote agent personas.
+- **Deliverables:**
+  1. `Agent Pool` virtual assignee with FIFO queue matching.
+  2. Agent capability tags (matching task labels like `docs`, `frontend` to agent specializations).
+  3. Trusted CI/CD webhook endpoint for auto-moving reviewed cards to `Done` upon merge.
