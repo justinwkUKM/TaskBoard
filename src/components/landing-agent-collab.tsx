@@ -38,7 +38,7 @@ const STAGES: StageData[] = [
     badge: 'MCP Protocol',
     heading: 'Instant connection over Model Context Protocol.',
     description:
-      'Assign tasks to the Agent Pool or a specific bot. Coding assistants like Claude Code and Cursor connect via MCP stdio to acquire atomic, transactional leases.',
+      'Assign tasks to the Agent Pool or a specific bot. Coding assistants like Google Antigravity, Claude Code, OpenAI Codex, and Cursor connect via MCP stdio to acquire atomic, transactional leases.',
     features: [
       'Transactional 90s leases prevent duplicate execution',
       'Crash recovery automatically re-queues stale or timed-out runs',
@@ -130,7 +130,7 @@ export function LandingAgentCollab() {
         </span>
         <h2>Humans and AI agents on the same board.</h2>
         <p>
-          Pair program with Claude Code, Cursor, or OpenCode via Model Context Protocol.
+          Pair program with Google Antigravity, Claude Code, OpenAI Codex, or Cursor via Model Context Protocol.
           Automated leases, isolated Git worktrees, and objective verification gates keep your board in sync.
         </p>
       </div>

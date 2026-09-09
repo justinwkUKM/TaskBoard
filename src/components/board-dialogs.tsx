@@ -623,11 +623,11 @@ export function BoardSettings({ board, onClose }: { board: Board; onClose: () =>
               <KeyRound size={15} /> Generate Scoped Agent Token
             </h3>
             <p className="field-help" style={{ margin: '0 0 10px' }}>
-              Scoped tokens allow local coding agents (Claude Code, OpenCode, Cursor) to view tasks, acquire transactional leases, ask questions, and submit review reports via MCP.
+              Scoped tokens allow local coding agents (Google Antigravity, Claude Code, OpenAI Codex, Cursor) to view tasks, acquire transactional leases, ask questions, and submit review reports via MCP.
             </p>
             <form onSubmit={generateToken} style={{ display: 'flex', gap: 8 }}>
               <input
-                placeholder="Agent name (e.g. Claude Code Local, OpenCode)"
+                placeholder="Agent name (e.g. Google Antigravity, Claude Code, OpenAI Codex)"
                 value={agentName}
                 onChange={e => setAgentName(e.target.value)}
                 maxLength={64}
@@ -695,10 +695,10 @@ export function BoardSettings({ board, onClose }: { board: Board; onClose: () =>
 
           <div className="mcp-setup-guide">
             <h3 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Code2 size={16} /> How to Connect Claude Code / MCP Host
+              <Code2 size={16} /> How to Connect Coding Assistants via MCP
             </h3>
-            <p style={{ fontSize: 11, color: '#475569', margin: '0 0 10px' }}>
-              Add TaskBoard MCP to Claude Code using one command:
+            <p style={{ fontSize: 11, color: '#475569', margin: '0 0 8px' }}>
+              <strong>Claude Code CLI:</strong>
             </p>
             <pre>
               {`claude mcp add taskboard npx -y @taskboard/mcp-server --env TASKBOARD_API_URL=${appUrl} --env TASKBOARD_AGENT_TOKEN=<YOUR_TOKEN>`}
@@ -706,6 +706,7 @@ export function BoardSettings({ board, onClose }: { board: Board; onClose: () =>
             <button
               type="button"
               className="button secondary small-button"
+              style={{ marginBottom: 14 }}
               onClick={async () => {
                 const cmd = `claude mcp add taskboard npx -y @taskboard/mcp-server --env TASKBOARD_API_URL=${appUrl} --env TASKBOARD_AGENT_TOKEN=<YOUR_TOKEN>`;
                 await navigator.clipboard.writeText(cmd);
@@ -714,7 +715,57 @@ export function BoardSettings({ board, onClose }: { board: Board; onClose: () =>
               }}
             >
               {copiedCli ? <Check size={13} /> : <Copy size={13} />}
-              {copiedCli ? 'Copied Command!' : 'Copy Claude MCP Command'}
+              {copiedCli ? 'Copied Command!' : 'Copy Claude CLI Command'}
+            </button>
+
+            <p style={{ fontSize: 11, color: '#475569', margin: '0 0 8px' }}>
+              <strong>Google Antigravity, OpenAI Codex & Cursor (MCP JSON Config):</strong>
+            </p>
+            <pre>
+{JSON.stringify(
+  {
+    mcpServers: {
+      taskboard: {
+        command: "npx",
+        args: ["-y", "@taskboard/mcp-server"],
+        env: {
+          TASKBOARD_API_URL: appUrl,
+          TASKBOARD_AGENT_TOKEN: "<YOUR_TOKEN>"
+        }
+      }
+    }
+  },
+  null,
+  2
+)}
+            </pre>
+            <button
+              type="button"
+              className="button secondary small-button"
+              onClick={async () => {
+                const config = JSON.stringify(
+                  {
+                    mcpServers: {
+                      taskboard: {
+                        command: "npx",
+                        args: ["-y", "@taskboard/mcp-server"],
+                        env: {
+                          TASKBOARD_API_URL: appUrl,
+                          TASKBOARD_AGENT_TOKEN: "<YOUR_TOKEN>"
+                        }
+                      }
+                    }
+                  },
+                  null,
+                  2
+                );
+                await navigator.clipboard.writeText(config);
+                setCopiedCli(true);
+                setTimeout(() => setCopiedCli(false), 2000);
+              }}
+            >
+              {copiedCli ? <Check size={13} /> : <Copy size={13} />}
+              {copiedCli ? 'Copied Configuration!' : 'Copy MCP JSON Config'}
             </button>
           </div>
 

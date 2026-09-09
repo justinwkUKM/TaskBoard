@@ -68,7 +68,7 @@ export type Member = {
   lastSeen?: number;
   type?: 'human' | 'agent';
   agentConfig?: {
-    provider: 'claude-code' | 'opencode' | 'codex' | 'custom';
+    provider: 'claude-code' | 'opencode' | 'codex' | 'antigravity' | 'cursor' | 'custom';
     runtime: 'local-runner' | 'mcp-host';
     allowedRepositories?: string[];
     capabilities?: string[];

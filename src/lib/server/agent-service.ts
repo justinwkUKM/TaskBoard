@@ -20,6 +20,7 @@ import {
   isReviewColumn,
   type Board,
   type Task,
+  type Member,
   type AgentToken,
   type ExecutionRun
 } from '../types';
@@ -89,6 +90,14 @@ export async function handleAgentTokens(
       revokedAt: null
     };
 
+    const lowerName = data.name.toLowerCase();
+    let provider: NonNullable<Member['agentConfig']>['provider'] = 'custom';
+    if (lowerName.includes('antigravity') || lowerName.includes('gemini')) provider = 'antigravity';
+    else if (lowerName.includes('codex') || lowerName.includes('openai')) provider = 'codex';
+    else if (lowerName.includes('claude')) provider = 'claude-code';
+    else if (lowerName.includes('opencode')) provider = 'opencode';
+    else if (lowerName.includes('cursor')) provider = 'cursor';
+
     await db.runTransaction(async tx => {
       tx.set(db.collection('agent_tokens').doc(tokenHash), record);
       // Register agent persona as a board member
@@ -100,7 +109,7 @@ export async function handleAgentTokens(
         role: 'member',
         type: 'agent',
         agentConfig: {
-          provider: 'claude-code',
+          provider,
           runtime: 'local-runner',
           capabilities: ['typescript', 'mcp']
         },
