@@ -20,7 +20,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowLeft, ArrowDown, ArrowUp, CalendarDays, Check, GripVertical, Plus, Search, Settings2, Sparkles, Users, X } from 'lucide-react';
+import { ArrowLeft, ArrowDown, ArrowUp, CalendarDays, Check, CheckCheck, GripVertical, Plus, Search, Settings2, Sparkles, Users, X } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { isMemberActive, type Board, type Column, type Member, type Task } from '@/lib/types';
 import { api, errorMessage, useSession } from './providers';
@@ -43,6 +43,19 @@ function collisionDetection(args: Parameters<typeof closestCorners>[0]) {
   return closestCorners(args);
 }
 
+function isDoneColumn(column?: Column | null, index?: number, totalColumns?: number): boolean {
+  if (!column) return false;
+  const normName = column.name.trim().toLowerCase();
+  const normId = column.id.trim().toLowerCase();
+  return (
+    normId === 'done' ||
+    normName === 'done' ||
+    normName.includes('done') ||
+    normName.includes('completed') ||
+    (typeof index === 'number' && typeof totalColumns === 'number' && totalColumns >= 2 && index === totalColumns - 1)
+  );
+}
+
 export function BoardScreen({ boardId }: { boardId: string }) {
   const { user, loading, online } = useSession(); const router = useRouter();
   const [board, setBoard] = useState<Board | null>(null); const [tasks, setTasks] = useState<Task[]>([]); const [members, setMembers] = useState<Member[]>([]); const [unavailable, setUnavailable] = useState(false); const [error, setError] = useState('');
@@ -50,6 +63,7 @@ export function BoardScreen({ boardId }: { boardId: string }) {
   const [editor, setEditor] = useState<{ task?: Task; columnId: string } | null>(null); const [settings, setSettings] = useState(false); const [sharing, setSharing] = useState(false); const [columnEditor, setColumnEditor] = useState<Column | 'new' | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [celebratedColumnId, setCelebratedColumnId] = useState<string | null>(null);
   const originalTasksRef = useRef<Task[]>([]);
 
   const filtered = Boolean(search.trim() || priority !== 'all' || mine); const owner = user?.uid === board?.ownerId;
@@ -182,6 +196,12 @@ export function BoardScreen({ boardId }: { boardId: string }) {
     }
 
     const taskToMove = originalTasksRef.current.find(t => t.id === activeId) || currentTask;
+    const isTargetDone = isDoneColumn(board.columns.find(c => c.id === targetColumn), board.columns.findIndex(c => c.id === targetColumn), board.columns.length);
+    const wasAlreadyDone = isDoneColumn(board.columns.find(c => c.id === taskToMove.columnId), board.columns.findIndex(c => c.id === taskToMove.columnId), board.columns.length);
+    if (isTargetDone && !wasAlreadyDone) {
+      setCelebratedColumnId(targetColumn);
+      setTimeout(() => setCelebratedColumnId(null), 1800);
+    }
     void move(taskToMove, targetColumn, beforeId);
   }
 
@@ -287,6 +307,7 @@ export function BoardScreen({ boardId }: { boardId: string }) {
                   disabled={busy || !online}
                   dragDisabled={busy || !online || filtered}
                   now={now}
+                  isCelebrate={celebratedColumnId === column.id}
                   onAdd={() => setEditor({ columnId: column.id })}
                   onEdit={task => setEditor({ task, columnId: task.columnId })}
                   onColumnEdit={() => setColumnEditor(column)}
@@ -305,6 +326,11 @@ export function BoardScreen({ boardId }: { boardId: string }) {
                   task={activeTask}
                   assignee={members.find(m => m.id === activeTask.assigneeId)}
                   now={now}
+                  isDone={isDoneColumn(
+                    board.columns.find(c => c.id === activeTask.columnId),
+                    board.columns.findIndex(c => c.id === activeTask.columnId),
+                    board.columns.length
+                  )}
                   isOverlay
                 />
               ) : null}
@@ -353,6 +379,7 @@ function KanbanColumn({
   disabled,
   dragDisabled,
   now,
+  isCelebrate = false,
   onAdd,
   onEdit,
   onColumnEdit,
@@ -367,19 +394,21 @@ function KanbanColumn({
   disabled: boolean;
   dragDisabled: boolean;
   now: number;
+  isCelebrate?: boolean;
   onAdd: () => void;
   onEdit: (task: Task) => void;
   onColumnEdit: () => void;
   onShift: (direction: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `column:${column.id}`, disabled: dragDisabled });
+  const isDone = isDoneColumn(column, index, count);
   return (
-    <section className={`kanban-column ${isOver ? 'column-over' : ''}`} ref={setNodeRef} aria-label={`${column.name} column`}>
+    <section className={`kanban-column ${isOver ? 'column-over' : ''} ${isCelebrate && isDone ? 'column-celebrate' : ''}`} ref={setNodeRef} aria-label={`${column.name} column`}>
       <div className="kanban-column-header">
         <h2>
           <span className={`status-dot status-${index === count - 1 ? 2 : index === 0 ? 0 : 1}`} />
           {column.name}
-          <span className="count">{tasks.length}</span>
+          <span className={`count ${isCelebrate && isDone ? 'count-bump' : ''}`}>{tasks.length}</span>
         </h2>
         {owner && (
           <div className="column-controls">
@@ -404,6 +433,7 @@ function KanbanColumn({
               assignee={members.find(m => m.id === task.assigneeId)}
               now={now}
               disabled={dragDisabled}
+              isDone={isDone}
               onEdit={() => onEdit(task)}
             />
           ))}
@@ -422,12 +452,14 @@ function TaskCard({
   assignee,
   now,
   disabled,
+  isDone = false,
   onEdit,
 }: {
   task: Task;
   assignee?: Member;
   now: number;
   disabled: boolean;
+  isDone?: boolean;
   onEdit: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id, disabled });
@@ -437,14 +469,17 @@ function TaskCard({
   return (
     <article
       ref={setNodeRef}
-      className={`task-card task-card-${task.priority || 'none'} ${isDragging ? 'dragging' : ''}`}
+      className={`task-card task-card-${task.priority || 'none'} ${isDone ? 'task-done' : ''} ${isDragging ? 'dragging' : ''}`}
       style={{
         transform: CSS.Translate.toString(transform),
         transition: isDragging ? undefined : (transition || 'transform 200ms cubic-bezier(0.2, 0, 0, 1)'),
       }}
     >
       <div className="task-card-top">
-        <button className="task-open" onClick={onEdit}>{task.title}</button>
+        <button className="task-open" onClick={onEdit}>
+          {isDone && <CheckCheck size={14} className="task-done-icon" />}
+          {task.title}
+        </button>
         <button className="drag-handle" aria-label={`Drag ${task.title}`} {...attributes} {...listeners} disabled={disabled}>
           <GripVertical size={16} />
         </button>
@@ -468,20 +503,25 @@ function TaskCardView({
   task,
   assignee,
   now,
+  isDone = false,
   isOverlay = false,
 }: {
   task: Task;
   assignee?: Member;
   now: number;
+  isDone?: boolean;
   isOverlay?: boolean;
 }) {
   const today = new Date();
   const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   return (
-    <article className={`task-card task-card-${task.priority || 'none'} ${isOverlay ? 'dragging-overlay' : ''}`}>
+    <article className={`task-card task-card-${task.priority || 'none'} ${isDone ? 'task-done' : ''} ${isOverlay ? 'dragging-overlay' : ''}`}>
       <div className="task-card-top">
-        <span className="task-open">{task.title}</span>
+        <span className="task-open">
+          {isDone && <CheckCheck size={14} className="task-done-icon" />}
+          {task.title}
+        </span>
         <span className="drag-handle" style={{ cursor: isOverlay ? 'grabbing' : 'grab' }}>
           <GripVertical size={16} />
         </span>
