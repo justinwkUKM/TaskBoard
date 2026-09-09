@@ -14,6 +14,7 @@ import {
   KeyRound,
   Link2,
   Plus,
+  Sparkles,
   Terminal,
   Trash2,
   UserMinus
@@ -495,6 +496,7 @@ export function BoardSettings({
   const [newlyCreatedToken, setNewlyCreatedToken] = useState<{ name: string; token: string } | null>(null);
   const [copiedToken, setCopiedToken] = useState(false);
   const [copiedCli, setCopiedCli] = useState(false);
+  const [clientGuide, setClientGuide] = useState<'antigravity' | 'claude' | 'cursor'>('antigravity');
 
   useEffect(() => {
     if (tab === 'agents') {
@@ -625,7 +627,38 @@ export function BoardSettings({
           </div>
         </>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {/* Professional 3-Step Setup Guidance */}
+          <div className="agent-quick-guide">
+            <div className="agent-guide-header">
+              <Sparkles size={14} style={{ color: '#84cc16' }} />
+              <span>How to Add & Connect Your Coding Agent</span>
+            </div>
+            <div className="agent-guide-steps">
+              <div className="agent-guide-step">
+                <div className="guide-step-num">1</div>
+                <div>
+                  <strong>Generate Scoped Token</strong>
+                  <p>Type your agent’s name (e.g. <em>Google Antigravity</em>, <em>OpenAI Codex</em>, or <em>Claude Code</em>) and click Generate.</p>
+                </div>
+              </div>
+              <div className="agent-guide-step">
+                <div className="guide-step-num">2</div>
+                <div>
+                  <strong>Copy Secret Token</strong>
+                  <p>Copy the token starting with <code>tb_agent_...</code>. It is hashed securely in TaskBoard and shown only once.</p>
+                </div>
+              </div>
+              <div className="agent-guide-step">
+                <div className="guide-step-num">3</div>
+                <div>
+                  <strong>Connect via MCP</strong>
+                  <p>Copy the configuration below into your agent’s MCP settings or run the 1-click Claude Code CLI command.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div>
             <h3 className="subheading" style={{ marginTop: 0 }}>
               <KeyRound size={15} /> Generate Scoped Agent Token
@@ -701,35 +734,51 @@ export function BoardSettings({
             )}
           </div>
 
+          {/* MCP Configuration Guide with Client Tabs */}
           <div className="mcp-setup-guide">
-            <h3 style={{ fontSize: 13, fontWeight: 700, margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Code2 size={16} /> How to Connect Coding Assistants via MCP
-            </h3>
-            <p style={{ fontSize: 11, color: '#475569', margin: '0 0 8px' }}>
-              <strong>Claude Code CLI:</strong>
-            </p>
-            <pre>
-              {`claude mcp add taskboard npx -y @taskboard/mcp-server --env TASKBOARD_API_URL=${appUrl} --env TASKBOARD_AGENT_TOKEN=<YOUR_TOKEN>`}
-            </pre>
-            <button
-              type="button"
-              className="button secondary small-button"
-              style={{ marginBottom: 14 }}
-              onClick={async () => {
-                const cmd = `claude mcp add taskboard npx -y @taskboard/mcp-server --env TASKBOARD_API_URL=${appUrl} --env TASKBOARD_AGENT_TOKEN=<YOUR_TOKEN>`;
-                await navigator.clipboard.writeText(cmd);
-                setCopiedCli(true);
-                setTimeout(() => setCopiedCli(false), 2000);
-              }}
-            >
-              {copiedCli ? <Check size={13} /> : <Copy size={13} />}
-              {copiedCli ? 'Copied Command!' : 'Copy Claude CLI Command'}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Code2 size={16} /> How to Connect via Model Context Protocol (MCP)
+              </h3>
+              {newlyCreatedToken && (
+                <span style={{ fontSize: 11, color: '#166534', background: '#dcfce7', padding: '2px 8px', borderRadius: 12, fontWeight: 600 }}>
+                  ✓ Token auto-inserted in snippets below
+                </span>
+              )}
+            </div>
 
-            <p style={{ fontSize: 11, color: '#475569', margin: '0 0 8px' }}>
-              <strong>Google Antigravity, OpenAI Codex & Cursor (MCP JSON Config):</strong>
-            </p>
-            <pre>
+            {/* Client Tabs */}
+            <div className="mcp-client-tabs">
+              <button
+                type="button"
+                className={`mcp-client-btn ${clientGuide === 'antigravity' ? 'active' : ''}`}
+                onClick={() => setClientGuide('antigravity')}
+              >
+                Google Antigravity & OpenAI Codex
+              </button>
+              <button
+                type="button"
+                className={`mcp-client-btn ${clientGuide === 'claude' ? 'active' : ''}`}
+                onClick={() => setClientGuide('claude')}
+              >
+                Claude Code CLI
+              </button>
+              <button
+                type="button"
+                className={`mcp-client-btn ${clientGuide === 'cursor' ? 'active' : ''}`}
+                onClick={() => setClientGuide('cursor')}
+              >
+                Cursor & Claude Desktop
+              </button>
+            </div>
+
+            {/* Antigravity & Codex JSON */}
+            {clientGuide === 'antigravity' && (
+              <>
+                <p style={{ fontSize: 11, color: '#475569', margin: '0 0 8px' }}>
+                  Paste into your Antigravity / Codex MCP configuration file (e.g. <code>~/.gemini/antigravity/mcp_config.json</code> or project MCP settings):
+                </p>
+                <pre>
 {JSON.stringify(
   {
     mcpServers: {
@@ -738,7 +787,7 @@ export function BoardSettings({
         args: ["-y", "@taskboard/mcp-server"],
         env: {
           TASKBOARD_API_URL: appUrl,
-          TASKBOARD_AGENT_TOKEN: "<YOUR_TOKEN>"
+          TASKBOARD_AGENT_TOKEN: newlyCreatedToken ? newlyCreatedToken.token : '<YOUR_TOKEN>'
         }
       }
     }
@@ -746,35 +795,117 @@ export function BoardSettings({
   null,
   2
 )}
-            </pre>
-            <button
-              type="button"
-              className="button secondary small-button"
-              onClick={async () => {
-                const config = JSON.stringify(
-                  {
-                    mcpServers: {
-                      taskboard: {
-                        command: "npx",
-                        args: ["-y", "@taskboard/mcp-server"],
-                        env: {
-                          TASKBOARD_API_URL: appUrl,
-                          TASKBOARD_AGENT_TOKEN: "<YOUR_TOKEN>"
+                </pre>
+                <button
+                  type="button"
+                  className="button secondary small-button"
+                  onClick={async () => {
+                    const config = JSON.stringify(
+                      {
+                        mcpServers: {
+                          taskboard: {
+                            command: "npx",
+                            args: ["-y", "@taskboard/mcp-server"],
+                            env: {
+                              TASKBOARD_API_URL: appUrl,
+                              TASKBOARD_AGENT_TOKEN: newlyCreatedToken ? newlyCreatedToken.token : '<YOUR_TOKEN>'
+                            }
+                          }
                         }
-                      }
-                    }
-                  },
-                  null,
-                  2
-                );
-                await navigator.clipboard.writeText(config);
-                setCopiedCli(true);
-                setTimeout(() => setCopiedCli(false), 2000);
-              }}
-            >
-              {copiedCli ? <Check size={13} /> : <Copy size={13} />}
-              {copiedCli ? 'Copied Configuration!' : 'Copy MCP JSON Config'}
-            </button>
+                      },
+                      null,
+                      2
+                    );
+                    await navigator.clipboard.writeText(config);
+                    setCopiedCli(true);
+                    setTimeout(() => setCopiedCli(false), 2000);
+                  }}
+                >
+                  {copiedCli ? <Check size={13} /> : <Copy size={13} />}
+                  {copiedCli ? 'Copied Configuration!' : 'Copy Antigravity / Codex JSON Config'}
+                </button>
+              </>
+            )}
+
+            {/* Claude Code CLI */}
+            {clientGuide === 'claude' && (
+              <>
+                <p style={{ fontSize: 11, color: '#475569', margin: '0 0 8px' }}>
+                  Run this command in your terminal where Claude Code CLI is installed:
+                </p>
+                <pre>
+                  {`claude mcp add taskboard npx -y @taskboard/mcp-server --env TASKBOARD_API_URL=${appUrl} --env TASKBOARD_AGENT_TOKEN=${newlyCreatedToken ? newlyCreatedToken.token : '<YOUR_TOKEN>'}`}
+                </pre>
+                <button
+                  type="button"
+                  className="button secondary small-button"
+                  onClick={async () => {
+                    const cmd = `claude mcp add taskboard npx -y @taskboard/mcp-server --env TASKBOARD_API_URL=${appUrl} --env TASKBOARD_AGENT_TOKEN=${newlyCreatedToken ? newlyCreatedToken.token : '<YOUR_TOKEN>'}`;
+                    await navigator.clipboard.writeText(cmd);
+                    setCopiedCli(true);
+                    setTimeout(() => setCopiedCli(false), 2000);
+                  }}
+                >
+                  {copiedCli ? <Check size={13} /> : <Copy size={13} />}
+                  {copiedCli ? 'Copied Command!' : 'Copy Claude CLI Command'}
+                </button>
+              </>
+            )}
+
+            {/* Cursor & Claude Desktop */}
+            {clientGuide === 'cursor' && (
+              <>
+                <p style={{ fontSize: 11, color: '#475569', margin: '0 0 8px' }}>
+                  In <strong>Cursor</strong> (Settings → Features → MCP) or <strong>Claude Desktop</strong> (<code>claude_desktop_config.json</code>):
+                </p>
+                <pre>
+{JSON.stringify(
+  {
+    mcpServers: {
+      taskboard: {
+        command: "npx",
+        args: ["-y", "@taskboard/mcp-server"],
+        env: {
+          TASKBOARD_API_URL: appUrl,
+          TASKBOARD_AGENT_TOKEN: newlyCreatedToken ? newlyCreatedToken.token : '<YOUR_TOKEN>'
+        }
+      }
+    }
+  },
+  null,
+  2
+)}
+                </pre>
+                <button
+                  type="button"
+                  className="button secondary small-button"
+                  onClick={async () => {
+                    const config = JSON.stringify(
+                      {
+                        mcpServers: {
+                          taskboard: {
+                            command: "npx",
+                            args: ["-y", "@taskboard/mcp-server"],
+                            env: {
+                              TASKBOARD_API_URL: appUrl,
+                              TASKBOARD_AGENT_TOKEN: newlyCreatedToken ? newlyCreatedToken.token : '<YOUR_TOKEN>'
+                            }
+                          }
+                        }
+                      },
+                      null,
+                      2
+                    );
+                    await navigator.clipboard.writeText(config);
+                    setCopiedCli(true);
+                    setTimeout(() => setCopiedCli(false), 2000);
+                  }}
+                >
+                  {copiedCli ? <Check size={13} /> : <Copy size={13} />}
+                  {copiedCli ? 'Copied Configuration!' : 'Copy Cursor / Desktop Config'}
+                </button>
+              </>
+            )}
           </div>
 
           <ErrorNotice message={error} />
