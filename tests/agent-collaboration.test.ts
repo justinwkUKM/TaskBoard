@@ -125,6 +125,8 @@ describe('AI Agent Collaboration & MCP Architecture', () => {
         GITHUB_TOKEN: 'ghp_secretToken',
         GH_TOKEN: 'ghp_secretToken2',
         VERCEL_TOKEN: 'vc_secret',
+        FIREBASE_PRIVATE_KEY: 'test_key',
+        GEMINI_API_KEY: 'ai_secret',
         CUSTOM_SAFE_VAR: 'hello'
       };
 
@@ -139,6 +141,8 @@ describe('AI Agent Collaboration & MCP Architecture', () => {
       expect(cleanEnv.GITHUB_TOKEN).toBeUndefined();
       expect(cleanEnv.GH_TOKEN).toBeUndefined();
       expect(cleanEnv.VERCEL_TOKEN).toBeUndefined();
+      expect(cleanEnv.FIREBASE_PRIVATE_KEY).toBeUndefined();
+      expect(cleanEnv.GEMINI_API_KEY).toBeUndefined();
       expect(cleanEnv.CUSTOM_SAFE_VAR).toBe('hello');
       expect(cleanEnv.TASKBOARD_RUN).toBe('true');
 

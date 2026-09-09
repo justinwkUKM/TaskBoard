@@ -30,7 +30,12 @@ export class ProcessSupervisor {
       'GH_TOKEN',
       'GITHUB_PAT',
       'VERCEL_TOKEN',
-      'FIREBASE_TOKEN'
+      'VERCEL_OIDC_TOKEN',
+      'FIREBASE_TOKEN',
+      'FIREBASE_PRIVATE_KEY',
+      'FIREBASE_CLIENT_EMAIL',
+      'GEMINI_API_KEY',
+      'VCS_WEBHOOK_SECRET'
     ];
 
     for (const key of sensitiveKeys) {
