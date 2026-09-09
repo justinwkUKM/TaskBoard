@@ -566,7 +566,7 @@ export function BoardSettings({
       title="Board settings."
       description="Customize your board and configure AI coding agent collaboration."
       onClose={() => { if (!busy) onClose(); }}
-      wide={tab === 'agents'}
+      wide={tab === 'agents' ? 'extra' : false}
     >
       <div className="settings-tab-bar">
         <button
