@@ -340,3 +340,8 @@
 .mcp-client-btn{padding:6px 12px;border:1px solid #e2e8f0;background:white;border-radius:6px;font-size:11px;font-weight:600;color:#475569;cursor:pointer;transition:all .15s;white-space:nowrap}
 .mcp-client-btn:hover{background:#f8fafc;color:var(--ink)}
 .mcp-client-btn.active{background:var(--ink);color:white;border-color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+
+/* Micro Hover Tooltips for Board Action Buttons */
+.tooltip-btn{position:relative}
+.tooltip-btn:hover::after{content:attr(data-tooltip);position:absolute;bottom:-36px;left:50%;transform:translateX(-50%);background:#0a0a0a;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;white-space:nowrap;pointer-events:none;z-index:90;box-shadow:0 4px 14px rgba(0,0,0,0.22);animation:tooltipFade .15s ease}
+@keyframes tooltipFade{0%{opacity:0;transform:translateX(-50%) translateY(-3px)}100%{opacity:1;transform:translateX(-50%) translateY(0)}}

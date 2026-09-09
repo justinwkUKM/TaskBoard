@@ -246,27 +246,45 @@ export function BoardScreen({ boardId }: { boardId: string }) {
                 ))}
                 {members.length > 5 && <span className="avatar-more" title={`${members.length - 5} more members`}>+{members.length - 5}</span>}
               </div>
-              <Link className="button secondary" href={`/assistant?boardId=${board.id}`} title="Generate tasks with AI">
-                <Sparkles size={16} /> AI Helper
+              <Link
+                className="icon-button bordered tooltip-btn"
+                href={`/assistant?boardId=${board.id}`}
+                title="AI Task Helper"
+                aria-label="AI Task Helper"
+                data-tooltip="AI Task Helper"
+              >
+                <Sparkles size={18} />
               </Link>
               {owner && (
                 <button
-                  className="button secondary"
+                  type="button"
+                  className="icon-button bordered tooltip-btn"
                   onClick={() => { setSettingsTab('agents'); setSettings(true); }}
-                  title="Connect AI Coding Agents & Generate Tokens"
+                  title="AI Coding Agents & MCP"
+                  aria-label="AI Coding Agents & MCP"
+                  data-tooltip="AI Agents & MCP"
                 >
-                  <Bot size={16} /> Agents & MCP
+                  <Bot size={18} />
                 </button>
               )}
-              <button className="button secondary" onClick={() => setSharing(true)}>
-                <Users size={16} />{owner ? 'Share board' : 'People'}
+              <button
+                type="button"
+                className="icon-button bordered tooltip-btn"
+                onClick={() => setSharing(true)}
+                title={owner ? 'Share board' : 'People'}
+                aria-label={owner ? 'Share board' : 'People'}
+                data-tooltip={owner ? 'Share board' : 'People'}
+              >
+                <Users size={18} />
               </button>
               {owner && (
                 <button
-                  className="icon-button bordered"
+                  type="button"
+                  className="icon-button bordered tooltip-btn"
                   onClick={() => { setSettingsTab('general'); setSettings(true); }}
                   aria-label="Board settings"
                   title="Board settings"
+                  data-tooltip="Board settings"
                 >
                   <Settings2 size={18} />
                 </button>
