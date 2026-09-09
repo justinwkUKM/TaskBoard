@@ -16,6 +16,14 @@ if (mode === 'inspect') {
   const providers = await request(`${base}/defaultSupportedIdpConfigs`);
   console.log(JSON.stringify({ providers: providers.defaultSupportedIdpConfigs?.map(p => ({ name: p.name, enabled: p.enabled, hasClientId: Boolean(p.clientId) })) }));
 }
+if (mode === 'enable-google') {
+  try { await request(`https://identitytoolkit.googleapis.com/v2/projects/${project}/identityPlatform:initializeAuth`, 'POST'); } catch (error) { if (!String(error).includes('already')) throw error; }
+  try { await request(`${base}/defaultSupportedIdpConfigs?idpId=google.com`, 'POST', { enabled: true }); } catch (error) {
+    if (!String(error).includes('ALREADY_EXISTS')) throw error;
+    await request(`${base}/defaultSupportedIdpConfigs/google.com`, 'PATCH', { enabled: true },);
+  }
+  console.log(`Google provider configured for ${project}`);
+}
 if (mode === 'add-domain') {
   const domainToAdd = process.argv[4];
   if (!domainToAdd) throw new Error('Specify domain to add');
@@ -26,4 +34,3 @@ if (mode === 'add-domain') {
   const updated = await request(`${base}/config?updateMask=authorizedDomains`, 'PATCH', { authorizedDomains: updatedDomains });
   console.log(`Updated authorizedDomains for ${project}:`, updated.authorizedDomains);
 }
-
