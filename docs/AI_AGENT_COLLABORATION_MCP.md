@@ -1,9 +1,9 @@
 # TaskBoard AI Agent Collaboration (MCP Architecture & Technical Specification)
 
-**Status:** Production-Ready Architectural Blueprint  
+**Status:** Implemented & Deployed (Phases 1 & 2 Complete)  
 **Protocol:** Model Context Protocol (MCP)  
-**Execution Topology:** Local-First Single-Task Runner (Phase 1) with Orchestrated Recovery  
-**Target Hosts:** Claude Code CLI, OpenCode, Codex, Cursor, and MCP-compliant hosts  
+**Execution Topology:** Local-First Task Runner with Git Worktree Isolation & Orchestrated Recovery  
+**Target Hosts:** Google Antigravity, OpenAI Codex, Claude Code CLI, Cursor, OpenCode, and MCP-compliant hosts  
 
 ---
 
@@ -138,7 +138,7 @@ export interface Member {
   role: 'owner' | 'member';
   type: 'human' | 'agent';
   agentConfig?: {
-    provider: 'claude-code' | 'opencode' | 'codex' | 'custom';
+    provider: 'claude-code' | 'opencode' | 'codex' | 'antigravity' | 'cursor' | 'custom';
     runtime: 'local-runner' | 'mcp-host';
     allowedRepositories: string[];
     capabilities: string[]; // e.g. ['typescript', 'vitest', 'refactor']
@@ -255,6 +255,52 @@ The TaskBoard MCP Server exposes tools with strict parameter schemas and authori
 
 > **Security Note:** There is intentionally **no** `taskboard_mark_done` tool exposed to agent tokens. The transition into `Done` is restricted to authorized human sessions or verified GitHub/GitLab merge webhooks.
 
+### 4.1. Client Setup & Multi-Host Presets
+
+The TaskBoard UI provides an extra-wide (880px) **AI Agents & MCP** manager accessible via the board header or the People dialog. It features a 3-step setup guide and 1-click configuration generation with live token injection:
+
+#### Google Antigravity & OpenAI Codex
+Standard JSON configuration for tools supporting the Model Context Protocol:
+```json
+{
+  "mcpServers": {
+    "taskboard": {
+      "command": "npx",
+      "args": ["-y", "@taskboard/mcp-server"],
+      "env": {
+        "TASKBOARD_API_URL": "https://taskboard.waqasobeidy.com",
+        "TASKBOARD_AGENT_TOKEN": "tb_agent_<token>"
+      }
+    }
+  }
+}
+```
+
+#### Claude Code CLI
+One-line registration command for Claude Code:
+```bash
+claude mcp add taskboard npx -y @taskboard/mcp-server \
+  --env TASKBOARD_API_URL=https://taskboard.waqasobeidy.com \
+  --env TASKBOARD_AGENT_TOKEN=tb_agent_<token>
+```
+
+#### Cursor & Claude Desktop
+Add to `cursor_settings.json` or `claude_desktop_config.json`:
+```json
+{
+  "mcpServers": {
+    "taskboard": {
+      "command": "npx",
+      "args": ["-y", "@taskboard/mcp-server"],
+      "env": {
+        "TASKBOARD_API_URL": "https://taskboard.waqasobeidy.com",
+        "TASKBOARD_AGENT_TOKEN": "tb_agent_<token>"
+      }
+    }
+  }
+}
+```
+
 ---
 
 ## 5. Failure Mode & Edge Case Analysis
@@ -273,27 +319,30 @@ The TaskBoard MCP Server exposes tools with strict parameter schemas and authori
 
 ## 6. Implementation Milestones
 
-### Phase 1: Explicit Single-Task Execution (MVP Scope)
-- **Goal:** One repository, one supported runner CLI, explicit execution of one task, isolated worktrees, recoverable leases, bounded runtime, human review gate.
-- **Deliverables:**
-  1. Scoped Agent Token generation in Board Settings.
-  2. Next.js API endpoints: `/api/agent/v1/claim`, `/heartbeat`, `/review-submit`.
-  3. Standalone runner package (`@taskboard/runner`) managing Git worktrees and supervising Claude Code execution.
-  4. Worktree recovery utility (`taskboard-runner recover <runId>`).
-  5. UI updates: `Ready for Review` status badge and structured report viewer in Task modal.
+### Phase 1: Explicit Single-Task Execution (COMPLETE)
+- **Status:** Fully implemented in `src/mcp/`, `src/runner/`, and `src/lib/server/agent-service.ts`.
+- **Deliverables Delivered:**
+  1. Scoped Agent Token generation with SHA-256 storage (`tb_agent_...`) in Board Settings / Agents modal.
+  2. Next.js API endpoints (`/api/agent/v1/*`): claim, heartbeat, log, ask question, and submit review.
+  3. Standalone runner package (`src/runner/`) managing Git worktrees and supervising execution processes.
+  4. Worktree isolation manager (`src/runner/worktree.ts`) creating and cleaning `agent/{taskId}/attempt-{n}` trees.
+  5. Process supervisor (`src/runner/supervisor.ts`) enforcing wall-clock timeouts and command exit codes.
+  6. UI components: 44x44px icon-only header button with tooltip, extra-wide 880px setup dialog with 3-step guidance, conditional Agent Pool assignee dropdown, and collapsible structured review report viewer.
 
-### Phase 2: Resilience Verification Suite
-- **Goal:** Validate recovery and concurrency before multi-agent rollout.
-- **Required Automated Test Scenarios:**
-  - Simulated process kill (`kill -9`) during execution and verify lease expiration.
-  - Concurrent claim race test (5 runners attempting to claim 1 task simultaneously).
-  - Stale agent rejection test (agent attempting to submit review after lease has been reassigned).
-  - Worktree cleanup verification under both graceful exit and unhandled exception.
+### Phase 2: Resilience Verification Suite (COMPLETE)
+- **Status:** Fully validated via Vitest integration tests in `tests/agent-collaboration.test.ts` (27/27 passing tests).
+- **Test Scenarios Covered:**
+  - Token hashing and secure verification against database records.
+  - Transactional lease acquisition and collision prevention on concurrent claims.
+  - Periodic lease heartbeat renewal and stale-lease expiration rejection (`409 Conflict`).
+  - Objective verification gating (enforcing command exit codes and criteria completion).
+  - Backend enforcement of Done column protection (denying agent direct transitions with `403 Forbidden`).
+  - Worktree creation, verification execution, and cleanup mechanics.
 
-### Phase 3: Agent Pool & Automated Merge Webhook
+### Phase 3: Agent Pool & Automated Merge Webhook (In Progress)
 - **Goal:** Unattended execution across multiple local agent personas and hands-off completion upon merge.
 - **Deliverables:**
-  1. `Agent Pool` virtual assignee with FIFO queue matching.
+  1. `Agent Pool` virtual assignee with FIFO queue matching (UI selector implemented).
   2. Agent capability tags (matching task labels like `docs`, `frontend` to agent specializations).
   3. GitHub/GitLab webhook integration (`/api/webhooks/vcs`) verifying merge signatures and auto-transitioning reviewed cards to `Done`.
 

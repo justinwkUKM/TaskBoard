@@ -14,7 +14,24 @@ Built on **Next.js App Router**, **Firebase Authentication**, and **Cloud Firest
 
 ## Key Features
 
-- **Google Authentication**: Single-click sign in with Google, session persistence, and multi-account switching.
+- **Dual Authentication**: Single-click sign in with Google or passwordless email magic links, session persistence, and multi-account switching.
+- **AI Coding Agent Collaboration (MCP)**:
+  - First-class support for **Google Antigravity**, **OpenAI Codex**, **Claude Code**, and **Cursor** via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/).
+  - Scoped agent tokens (`tb_agent_...`) with high-entropy SHA-256 storage, restricting agents to task execution without board admin access.
+  - Transactional leases (90s with automatic heartbeats) preventing stale execution or duplicate claims.
+  - Objective verification gating: agents submit structured reports containing real test exit codes, commit SHAs, and diff stats.
+  - Backend-enforced Done column safety: agents are prohibited from marking tasks as "Done" directly (requiring human approval or verified VCS merge webhooks).
+  - Local runner with Git worktree isolation (`git worktree add`) ensuring agent tasks run without dirtying the developer's working tree.
+- **Progressive Web App (PWA)**:
+  - Installable application with offline-first service worker caching app shell and static assets.
+  - Adaptive home-screen icons and Web App Manifest.
+  - Real-time offline detection banner preventing unsaved writes.
+- **Minimalist Paper & Ink UI**:
+  - Distraction-free TZone aesthetic with high-contrast Ink and Paper palette.
+  - Compact icon-only header toolbar with dark ink micro hover tooltips.
+  - Extra-wide (880px) AI Agents & MCP setup dialog with 3-step guidance and one-click JSON/CLI configuration copying.
+  - Celebratory strike-through animation when tasks reach Done.
+  - Interactive agent collaboration preview on the landing page.
 - **Real-Time Board Sync**: Live updates across all open clients powered by Firestore real-time listeners.
 - **Kanban Workflow**:
   - Drag-and-drop task cards powered by `@dnd-kit`.
@@ -26,13 +43,14 @@ Built on **Next.js App Router**, **Firebase Authentication**, and **Cloud Firest
   - Required titles (up to 200 characters) and optional plain text descriptions (up to 10,000 characters).
   - Priority levels (*High*, *Medium*, *Low*, *None*) with distinct visual badges.
   - Time-zone safe calendar due dates with overdue warnings.
-  - Single-member task assignments.
+  - Single-member or agent pool task assignments.
+  - Collapsible structured review report viewer with command verification logs and file diff statistics.
 - **Search & Filters**:
   - Real-time title search.
   - Priority filtering and "Assigned to me" toggle.
   - Drag-and-drop safely disabled while filters are active to prevent accidental reordering; explicit moves remain accessible.
 - **Collaboration & Access Control**:
-  - Single-owner model with full administrative control (settings, columns, invites, deletion).
+  - Single-owner model with full administrative control (settings, columns, invites, deletion, agent tokens).
   - Member role for day-to-day task creation, editing, moving, and self-leaving.
   - Email-bound invitation tokens with 7-day expiration, single-use acceptance, and owner revocation.
   - Automatic task unassignment when members leave or are removed.
@@ -52,12 +70,14 @@ Built on **Next.js App Router**, **Firebase Authentication**, and **Cloud Firest
 | **UI Library** | [React 19](https://react.dev/) |
 | **Styling** | [Tailwind CSS](https://tailwindcss.com/) & Custom Design System |
 | **Dialogs & Primitives** | [Radix UI Dialog](https://www.radix-ui.com/primitives/docs/components/dialog) |
+| **Agent Protocol** | [@modelcontextprotocol/sdk](https://modelcontextprotocol.io/) (v1.30.0+) |
 | **Drag & Drop** | [@dnd-kit](https://dndkit.com/) (Core & Sortable) |
 | **Icons** | [Lucide React](https://lucide.dev/) |
 | **Validation** | [Zod](https://zod.dev/) |
-| **Authentication** | [Firebase Authentication](https://firebase.google.com/docs/auth) (Google OAuth) |
+| **Authentication** | [Firebase Authentication](https://firebase.google.com/docs/auth) (Google OAuth & Email Magic Link) |
 | **Database** | [Cloud Firestore](https://firebase.google.com/docs/firestore) |
 | **Backend / Admin** | [Firebase Admin SDK](https://firebase.google.com/docs/admin/setup) (Node.js runtime) |
+| **PWA / Caching** | Service Worker API & Web App Manifest |
 | **Testing** | [Vitest](https://vitest.dev/), [Playwright](https://playwright.dev/) |
 | **Deployment** | [Vercel](https://vercel.com/) (sin1 region) |
 
@@ -84,6 +104,110 @@ Browser Client (React / Next.js)
 2. **Server-Authoritative Mutations**: All creates, updates, deletes, and reorders must pass through the `/api/[...path]` route handler running under Node.js runtime.
 3. **Invitation Privacy**: Invitation tokens are stored on the server as SHA-256 hashes (`hash(token)`). Raw tokens are never logged or stored. Acceptance verifies the user's verified Google email against the invited email address.
 4. **Optimistic UI with Rollback**: Client-side state updates optimistically for responsive drag interactions, reverting automatically if the API responds with a conflict or network failure.
+5. **Scoped Agent Tokens & Security**: Agent tokens (`tb_agent_...`) provide scoped access strictly limited to reading task specifications, acquiring leases, posting progress logs, asking questions, and submitting completion reports. Only SHA-256 hashes are persisted; plain tokens are shown once at creation. Agent tokens are prohibited from board administration, invite management, and marking tasks "Done".
+6. **Objective Verification & Review Gating**: Tasks completed by agents transition to "Ready for Review" accompanied by automated test logs, command exit codes (`0 = pass`), git branches, and PR links. Only a human board member or a verified Git merge webhook can transition a task to "Done".
+
+---
+
+## AI Coding Agent Collaboration (MCP)
+
+TaskBoard connects real-world coding assistants directly to your Kanban board via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). Supported coding assistants include **Google Antigravity**, **OpenAI Codex**, **Claude Code CLI**, and **Cursor**.
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                        TaskBoard Cloud Plane                               │
+│                                                                            │
+│   [To Do] ──────────────► [In Progress] ──────────────► [Ready for Review]  │
+│      │                           ▲                                ▲        │
+│      │ 1. Claim Task Lease       │ 2. Heartbeats (90s)            │ 3. PR  │
+│      │    (Firestore Tx)         │    & Progress Logs             │ Report │
+│      ▼                           │                                │        │
+│  ┌───────────────────────────────┴────────────────────────────────┴─────┐  │
+│  │ Authenticated Agent API (/api/agent/v1)                              │  │
+│  │ - Scoped Agent Token (`tb_agent_...`) validation                     │  │
+│  │ - Transactional Leases & Stale-Run Rejection                         │  │
+│  │ - Blocked 'Done' Direct Transitions (Human Review Required)         │  │
+│  └──────────────────────────────────────┬───────────────────────────────┘  │
+└─────────────────────────────────────────┼──────────────────────────────────┘
+                                          │ stdio / SSE
+                                          ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│                       Developer Workstation (Local Runner)                 │
+│                                                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │ TaskBoard MCP Server & Git Worktree Manager                          │  │
+│  │ - Spawns isolated Git worktree: `agent/{taskId}/attempt-1`           │  │
+│  │ - Runs local verification tests (`npm test`, `vitest`)               │  │
+│  │ - Preserves developer's uncommitted changes on working branch        │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 1. Generating a Scoped Agent Token
+
+1. Open your board and click the **Agents & MCP** icon (or access it from **Share board** -> **AI Agents & MCP**).
+2. Under **Generate Scoped Agent Token**, enter an agent name (e.g. `Google Antigravity`, `OpenAI Codex`, `Claude Code Local`).
+3. Click **Generate Token** and copy your token (`tb_agent_...`). Plaintext tokens are displayed only once.
+
+### 2. Connecting Your AI Coding Assistant
+
+#### Google Antigravity & OpenAI Codex
+Add TaskBoard to your tool's MCP configuration (`mcpServers.taskboard`):
+
+```json
+{
+  "mcpServers": {
+    "taskboard": {
+      "command": "npx",
+      "args": ["-y", "@taskboard/mcp-server"],
+      "env": {
+        "TASKBOARD_API_URL": "https://taskboard.waqasobeidy.com",
+        "TASKBOARD_AGENT_TOKEN": "tb_agent_YOUR_TOKEN_HERE"
+      }
+    }
+  }
+}
+```
+
+#### Claude Code CLI
+Register TaskBoard in a single command:
+
+```bash
+claude mcp add taskboard npx -y @taskboard/mcp-server \
+  --env TASKBOARD_API_URL=https://taskboard.waqasobeidy.com \
+  --env TASKBOARD_AGENT_TOKEN=tb_agent_YOUR_TOKEN_HERE
+```
+
+#### Cursor & Claude Desktop
+Add to your `cursor_settings.json` or `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "taskboard": {
+      "command": "npx",
+      "args": ["-y", "@taskboard/mcp-server"],
+      "env": {
+        "TASKBOARD_API_URL": "https://taskboard.waqasobeidy.com",
+        "TASKBOARD_AGENT_TOKEN": "tb_agent_YOUR_TOKEN_HERE"
+      }
+    }
+  }
+}
+```
+
+### 3. Available MCP Tools
+
+| Tool | Parameters | Description |
+|---|---|---|
+| `taskboard_get_task` | `taskId` | Fetches task title, description, priority, acceptance criteria, and repo metadata. |
+| `taskboard_claim_task` | `taskId`, `baseCommit` | Transactionally claims a task, locks the base git commit, and moves it to *In Progress*. |
+| `taskboard_heartbeat` | `runId` | Renews the 90-second lease to prevent stale-task reassignment. |
+| `taskboard_record_log` | `runId`, `level`, `message` | Appends real-time execution logs and milestones to the run audit stream. |
+| `taskboard_ask_human_question` | `runId`, `question`, `context` | Flags the card as *Needs Input*, records the blocker, and prompts the human user. |
+| `taskboard_submit_for_review` | `runId`, `report` | Attaches objective verification results (test commands, exit codes, PR URL) and moves card to *Ready for Review*. |
+
+> **Safety Guarantee**: Agent tokens cannot transition tasks to *Done*. Done column writes return `403 Forbidden`. Tasks must be verified by a human or confirmed via a signed GitHub/GitLab merge webhook.
 
 ---
 
@@ -195,41 +319,59 @@ Open [http://localhost:3000](http://localhost:3000) in your browser to start usi
 ```
 TaskBoard/
 ├── docs/
-│   ├── PRD.md                  # Detailed Product Requirements Document
-│   └── IMPLEMENTATION_PLAN.md  # Architectural specification & launch gates
+│   ├── AI_AGENT_COLLABORATION_MCP.md # Model Context Protocol & agent specs
+│   ├── IMPLEMENTATION_PLAN.md        # Launch gates & technical specs
+│   ├── MAGIC_LINK_AUTH.md            # Passwordless email link authentication
+│   ├── PRD.md                        # Product Requirements Document
+│   └── STATUS.md                     # Milestone tracking & delivery status
+├── public/
+│   ├── manifest.json                 # PWA Web App Manifest
+│   └── sw.js                         # PWA Service Worker caching
 ├── src/
 │   ├── app/
 │   │   ├── api/
 │   │   │   └── [...path]/
-│   │   │       └── route.ts    # Unified Node.js API mutation route handler
+│   │   │       └── route.ts          # Unified Node.js API mutation route handler
+│   │   ├── auth/finish/
+│   │   │   └── page.tsx              # Email magic-link confirmation handler
 │   │   ├── boards/
 │   │   │   ├── [boardId]/
-│   │   │   │   └── page.tsx    # Dynamic board view
-│   │   │   └── page.tsx        # Boards dashboard
+│   │   │   │   └── page.tsx          # Dynamic board view
+│   │   │   └── page.tsx              # Boards dashboard
 │   │   ├── invite/
 │   │   │   └── [token]/
-│   │   │       └── page.tsx    # Invitation acceptance view
-│   │   ├── globals.css         # Design system tokens and styling
-│   │   ├── layout.tsx          # Root layout and session provider wrapping
-│   │   └── page.tsx            # Public landing page and Google sign-in
+│   │   │       └── page.tsx          # Invitation acceptance view
+│   │   ├── globals.css               # Design system tokens and styling
+│   │   ├── layout.tsx                # Root layout, PWA meta, and auth provider
+│   │   └── page.tsx                  # Public landing page and showcase
 │   ├── components/
-│   │   ├── board-dialogs.tsx   # Modals: Task Editor, Columns, Settings, Sharing
-│   │   ├── board-screen.tsx    # Kanban board view with DnD context & toolbar
-│   │   ├── providers.tsx       # Auth context, session state, and API helpers
-│   │   └── ui.tsx              # Reusable UI elements (Header, Logo, Modal, etc.)
+│   │   ├── board-dialogs.tsx         # Modals: Task Editor, Columns, Settings, Sharing, Agents & MCP
+│   │   ├── board-screen.tsx          # Kanban board view with DnD context & toolbar
+│   │   ├── landing-agent-collab.tsx  # Interactive AI Agent Collaboration showcase
+│   │   ├── providers.tsx             # Auth context, session state, and API helpers
+│   │   └── ui.tsx                    # Reusable UI elements (Header, Logo, Tooltips, Modal)
+│   ├── mcp/
+│   │   ├── cli.ts                    # MCP CLI runner entrypoint
+│   │   ├── client.ts                 # HTTP client for TaskBoard Agent API
+│   │   └── server.ts                 # Model Context Protocol stdio server implementation
+│   ├── runner/
+│   │   ├── index.ts                  # Autonomous execution orchestrator
+│   │   ├── supervisor.ts             # External process lifecycle & timeout supervisor
+│   │   └── worktree.ts               # Git worktree creation, isolation, & cleanup
 │   └── lib/
-│       ├── firebase.ts         # Client Firebase initialization & emulator config
-│       ├── types.ts            # Core TypeScript interfaces and domain limits
-│       ├── validation.ts       # Zod schemas for all mutations and payloads
+│       ├── firebase.ts               # Client Firebase initialization & emulator config
+│       ├── types.ts                  # Core TypeScript interfaces and agent types
+│       ├── validation.ts             # Zod schemas for all mutations and payloads
 │       └── server/
-│           ├── admin.ts        # Firebase Admin SDK initialization
-│           ├── auth.ts         # Token verification, assertions, and throttling
-│           └── service.ts      # Authoritative database operations & transactions
-├── firestore.rules             # Client read security rules
-├── firestore.indexes.json      # Firestore composite indexes
-├── firebase.json               # Firebase CLI & emulator configuration
-├── next.config.ts              # Next.js configuration and security headers
-└── vercel.json                 # Vercel deployment configuration
+│           ├── admin.ts              # Firebase Admin SDK initialization
+│           ├── agent-service.ts      # Agent token validation, transactional leases, reports
+│           ├── auth.ts               # User token verification, assertions, and throttling
+│           └── service.ts            # Authoritative database operations & transactions
+├── firestore.rules                   # Client read security rules
+├── firestore.indexes.json            # Firestore composite indexes
+├── firebase.json                     # Firebase CLI & emulator configuration
+├── next.config.ts                    # Next.js configuration and security headers
+└── vercel.json                       # Vercel deployment configuration
 ```
 
 ---
